@@ -12,3 +12,5 @@ node index.js
 ```
 
 vai aparecer um qrcode maneiro, tu escaneia e xablau
+
+qualquer imagem, gif ou vídeo que tiver `!sticker` na mensagem ou na resposta vai retornar uma figurinha bem bolada e (talvez) engraçada
