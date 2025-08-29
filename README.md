@@ -47,6 +47,7 @@ npm install qrcode-terminal
 ---
 
 ## ▶️ Como usar
+Na diretório raíz do projeto execute:
 ```bash
 node index.js
 ```
