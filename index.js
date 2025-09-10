@@ -30,22 +30,21 @@ class WhatsAppStickerBot {
     this.maxReconnectAttempts = 3; 
     this.reconnectDelay = 3000; 
     this.autoCleanSession = true; 
+    
     if (!fs.existsSync(this.tempDir)) {
       fs.mkdirSync(this.tempDir, { recursive: true });
     }
 
-
     process.on("SIGINT", () => this.gracefulShutdown());
     process.on("SIGTERM", () => this.gracefulShutdown());
 
-    console.log("🤖 WhatsApp Sticker Bot com Auto QR Code");
-    console.log(
-      "📱 Quando desconectar no app, o bot gerará novo QR automaticamente\n"
-    );
+    console.log("🤖 WhatsApp Sticker Bot - Conversor Bidirecional");
+    console.log("🔄 !sticker - Converte imagem/vídeo para sticker");
+    console.log("🖼️ !image - Converte sticker para imagem");
+    console.log("📱 Quando desconectar no app, o bot gerará novo QR automaticamente\n");
   }
 
   async startBot() {
-  
     if (this.isConnecting) {
       console.log("⏳ Já existe uma tentativa de conexão em andamento...");
       return;
@@ -54,7 +53,6 @@ class WhatsAppStickerBot {
     this.isConnecting = true;
 
     try {
-    
       if (this.sock) {
         try {
           this.sock.end();
@@ -110,7 +108,6 @@ class WhatsAppStickerBot {
       }
     });
 
-    
     this.sock.ev.on("CB:call", (call) => {
       console.log("📞 Chamada recebida e rejeitada automaticamente");
     });
@@ -138,7 +135,6 @@ class WhatsAppStickerBot {
 
       if (connection === "close") {
         this.isConnecting = false;
-
         const reconnectAction = await this.analyzeDisconnection(lastDisconnect);
 
         console.log(
@@ -164,9 +160,9 @@ class WhatsAppStickerBot {
         console.log("🔗 Conectando ao WhatsApp...");
       } else if (connection === "open") {
         console.log("✅ Bot conectado com sucesso!");
-        console.log(
-          "🎯 Envie !sticker respondendo a uma imagem/vídeo/GIF para criar stickers\n"
-        );
+        console.log("🔄 Comandos disponíveis:");
+        console.log("   !sticker - Converte imagem/vídeo para sticker");
+        console.log("   !image - Converte sticker para imagem\n");
         this.isConnecting = false;
         this.reconnectAttempts = 0; 
       }
@@ -187,9 +183,7 @@ class WhatsAppStickerBot {
       switch (statusCode) {
         case DisconnectReason.loggedOut:
           console.log("🔄 Detectado: Desconectado no app do WhatsApp");
-          console.log(
-            "🧹 Limpando sessão automaticamente para gerar novo QR...\n"
-          );
+          console.log("🧹 Limpando sessão automaticamente para gerar novo QR...\n");
           return "clean_and_restart";
 
         case DisconnectReason.forbidden:
@@ -226,7 +220,6 @@ class WhatsAppStickerBot {
 
         default:
           console.log(`❓ Código de desconexão: ${statusCode}`);
-   
           if (statusCode >= 400 && statusCode < 500) {
             console.log("🧹 Erro de autenticação - limpando sessão...\n");
             return "clean_and_restart";
@@ -242,21 +235,15 @@ class WhatsAppStickerBot {
     console.log("🧹 Limpando sessão de autenticação...");
 
     try {
-     
       if (fs.existsSync(this.authDir)) {
         await this.removeDirectory(this.authDir);
         console.log("✅ Sessão anterior removida com sucesso");
       }
 
-      
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       console.log("🚀 Iniciando nova sessão...\n");
-
-      
       this.reconnectAttempts = 0;
-
- 
       await this.startBot();
     } catch (error) {
       console.error("❌ Erro ao limpar autenticação:", error.message);
@@ -286,16 +273,14 @@ class WhatsAppStickerBot {
 
   async handleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log(
-        `❌ Máximo de tentativas atingido (${this.maxReconnectAttempts})`
-      );
+      console.log(`❌ Máximo de tentativas atingido (${this.maxReconnectAttempts})`);
       console.log("🧹 Tentando limpar sessão e gerar novo QR...\n");
       await this.cleanAuthAndRestart();
       return;
     }
 
     this.reconnectAttempts++;
-    const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, 10000); // Max 10s
+    const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, 10000);
 
     console.log(
       `⏳ Tentativa ${this.reconnectAttempts}/${this.maxReconnectAttempts} em ${
@@ -325,7 +310,6 @@ class WhatsAppStickerBot {
     }
 
     this.cleanupTempDir();
-
     console.log("✅ Bot finalizado com sucesso.");
     process.exit(0);
   }
@@ -339,12 +323,10 @@ class WhatsAppStickerBot {
           try {
             fs.unlinkSync(filePath);
           } catch (error) {
-           
           }
         });
       }
     } catch (error) {
-      
     }
   }
 
@@ -353,41 +335,150 @@ class WhatsAppStickerBot {
       if (message?.message) {
         const messageText = this.extractMessageText(message);
         const hasSticker = messageText?.toLowerCase().includes("!sticker");
+        const hasImage = messageText?.toLowerCase().includes("!image");
 
         if (hasSticker) {
-          if (this.hasMedia(message)) {
-            await this.processSticker(message);
-          } else if (
-            message.message?.extendedTextMessage?.contextInfo?.quotedMessage
-          ) {
-            const quotedMessage = {
-              message:
-                message.message.extendedTextMessage.contextInfo.quotedMessage,
-              key: {
-                remoteJid: message.key.remoteJid,
-                id: message.message.extendedTextMessage.contextInfo.stanzaId,
-              },
-            };
-
-            if (this.hasMedia(quotedMessage)) {
-              console.log("📋 Processando mídia da mensagem respondida...");
-              await this.processSticker(quotedMessage, message.key.remoteJid);
-            } else {
-              await this.sendMessage(
-                message.key.remoteJid,
-                "ℹ️ Responda a uma imagem/vídeo/GIF com !sticker para criar um sticker"
-              );
-            }
-          } else {
-            await this.sendMessage(
-              message.key.remoteJid,
-              "ℹ️ Envie uma imagem/vídeo/GIF com !sticker ou responda a uma mídia com !sticker"
-            );
-          }
+          await this.handleStickerCommand(message);
+        } else if (hasImage) {
+          await this.handleImageCommand(message);
         }
       }
     } catch (error) {
       console.error("Erro ao processar mensagem:", error.message);
+    }
+  }
+
+  async handleStickerCommand(message) {
+    if (this.hasMedia(message)) {
+      await this.processSticker(message);
+    } else if (message.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+      const quotedMessage = {
+        message: message.message.extendedTextMessage.contextInfo.quotedMessage,
+        key: {
+          remoteJid: message.key.remoteJid,
+          id: message.message.extendedTextMessage.contextInfo.stanzaId,
+        },
+      };
+
+      if (this.hasMedia(quotedMessage)) {
+        console.log("📋 Processando mídia da mensagem respondida...");
+        await this.processSticker(quotedMessage, message.key.remoteJid);
+      } else {
+        await this.sendMessage(
+          message.key.remoteJid,
+          "ℹ️ Responda a uma imagem/vídeo/GIF com !sticker para criar um sticker"
+        );
+      }
+    } else {
+      await this.sendMessage(
+        message.key.remoteJid,
+        "ℹ️ Envie uma imagem/vídeo/GIF com !sticker ou responda a uma mídia com !sticker"
+      );
+    }
+  }
+
+  async handleImageCommand(message) {
+    if (this.hasSticker(message)) {
+      await this.processStickerToImage(message);
+    } else if (message.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+      const quotedMessage = {
+        message: message.message.extendedTextMessage.contextInfo.quotedMessage,
+        key: {
+          remoteJid: message.key.remoteJid,
+          id: message.message.extendedTextMessage.contextInfo.stanzaId,
+        },
+      };
+
+      if (this.hasSticker(quotedMessage)) {
+        console.log("🔄 Processando sticker da mensagem respondida...");
+        await this.processStickerToImage(quotedMessage, message.key.remoteJid);
+      } else {
+        await this.sendMessage(
+          message.key.remoteJid,
+          "ℹ️ Responda a um sticker com !image para converter em imagem"
+        );
+      }
+    } else {
+      await this.sendMessage(
+        message.key.remoteJid,
+        "ℹ️ Envie um sticker com !image ou responda a um sticker com !image"
+      );
+    }
+  }
+
+  async processStickerToImage(message, targetJid = null) {
+    try {
+      console.log("🖼️ Convertendo sticker para imagem...");
+
+      const jid = targetJid || message.key.remoteJid;
+
+      if (!this.sock || !this.sock.user) {
+        console.log("❌ Socket não disponível");
+        return;
+      }
+
+      const buffer = await downloadMediaMessage(
+        message,
+        "buffer",
+        {},
+        {
+          logger: undefined,
+          reuploadRequest: this.sock.updateMediaMessage,
+        }
+      );
+
+      if (!buffer) {
+        await this.sendMessage(
+          jid,
+          "❌ Erro ao baixar o sticker. Tente novamente."
+        );
+        return;
+      }
+
+      const imageBuffer = await this.convertStickerToImage(buffer);
+
+      if (imageBuffer) {
+        await this.sock.sendMessage(jid, {
+          image: imageBuffer,
+          caption: "🖼️ Sticker convertido para imagem!",
+        });
+        console.log("✅ Imagem enviada com sucesso!");
+      } else {
+        await this.sendMessage(
+          jid,
+          "❌ Erro ao converter sticker para imagem. Verifique se é um sticker válido."
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao processar conversão:", error.message);
+      const jid = targetJid || message.key.remoteJid;
+      await this.sendMessage(
+        jid,
+        "❌ Erro interno. Tente novamente em alguns segundos."
+      );
+    }
+  }
+
+  async convertStickerToImage(buffer) {
+    try {
+      console.log("🔄 Convertendo WebP para PNG...");
+
+      const imageBuffer = await sharp(buffer)
+        .png({
+          quality: 100,
+          compressionLevel: 6,
+          adaptiveFiltering: false,
+          force: true
+        })
+        .toBuffer();
+
+      console.log(
+        `✅ Sticker convertido: ${(imageBuffer.length / 1024).toFixed(1)}KB`
+      );
+      return imageBuffer;
+    } catch (error) {
+      console.error("Erro na conversão de sticker:", error.message);
+      return null;
     }
   }
 
@@ -409,13 +500,16 @@ class WhatsAppStickerBot {
     );
   }
 
+  hasSticker(message) {
+    return !!(message.message?.stickerMessage);
+  }
+
   async processSticker(message, targetJid = null) {
     try {
       console.log("🔎 Processando sticker...");
 
       const jid = targetJid || message.key.remoteJid;
 
-    
       if (!this.sock || !this.sock.user) {
         console.log("❌ Socket não disponível");
         return;
@@ -586,13 +680,12 @@ class WhatsAppStickerBot {
           fs.unlinkSync(file);
         }
       } catch (error) {
-        
       }
     });
   }
 }
 
-
+// Initialize bot
 async function initBot() {
   try {
     const bot = new WhatsAppStickerBot();
@@ -602,7 +695,6 @@ async function initBot() {
     process.exit(1);
   }
 }
-
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("❌ Erro não tratado:", reason);
