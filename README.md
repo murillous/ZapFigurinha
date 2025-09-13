@@ -1,17 +1,20 @@
 # 🤖 WhatsApp Sticker Bot
 
-Um bot para WhatsApp que converte imagens, vídeos e GIFs em figurinhas automaticamente.  
+Um bot para WhatsApp que converte imagens, vídeos e GIFs em figurinhas **E** converte figurinhas de volta para imagens.  
 Desenvolvido com [Baileys](https://github.com/WhiskeySockets/Baileys), [Sharp](https://sharp.pixelplumbing.com/) e [FFmpeg](https://ffmpeg.org/).
 
 ---
 
 ## 🚀 Funcionalidades
-- Converte **imagens** em figurinhas (`!sticker`).
-- Converte **vídeos curtos** e **GIFs** em figurinhas animadas.
-- Permite criar figurinhas a partir de **mensagens respondidas**.
-- Otimização automática para manter os stickers abaixo de **500 KB**.
-- Reconexão automática em caso de desconexão.
-- Suporte a **QRCode** para login.
+- **🔄 Conversão bidirecional:**
+  - Converte **imagens** em figurinhas (`!sticker`)
+  - Converte **vídeos curtos** e **GIFs** em figurinhas animadas (`!sticker`)
+  - Converte **figurinhas** de volta para **imagens** (`!image`)
+- Permite criar figurinhas e imagens a partir de **mensagens respondidas**
+- Otimização automática para manter os stickers abaixo de **500 KB**
+- Reconexão automática em caso de desconexão
+- Limpeza automática de sessão quando desconectado do app
+- Suporte a **QRCode** para login
 
 ---
 
@@ -53,10 +56,40 @@ node index.js
 ```
 
 1. Escaneie o QR Code com seu WhatsApp.  
-2. Envie `!sticker` junto com uma imagem, vídeo ou GIF.  
-3. O bot irá responder com a figurinha. 🎉  
+2. Use os comandos disponíveis:
 
-Também é possível responder a uma mensagem com `!sticker` para transformá-la em figurinha.
+### 🔄 Comandos disponíveis:
+
+#### **Para criar figurinhas:**
+- Envie `!sticker` junto com uma **imagem**, **vídeo** ou **GIF**
+- Ou responda a uma mensagem com mídia usando `!sticker`
+
+#### **Para converter figurinhas em imagens:**
+- Envie `!image` junto com uma **figurinha**
+- Ou responda a uma figurinha usando `!image`
+
+### Exemplos de uso:
+```
+✅ Imagem + !sticker → Figurinha
+✅ Vídeo/GIF + !sticker → Figurinha animada  
+✅ Figurinha + !image → Imagem PNG
+✅ Responder mensagem + !sticker → Figurinha
+✅ Responder figurinha + !image → Imagem
+```
+
+---
+
+## 🔧 Recursos avançados
+
+### 🔄 Reconexão automática
+- O bot detecta automaticamente quando você se desconecta no app do WhatsApp
+- Limpa a sessão automaticamente e gera um novo QR Code
+- Tentativas inteligentes de reconexão em caso de problemas de rede
+
+### 🧹 Limpeza automática
+- Remove arquivos temporários automaticamente
+- Limpa sessões corrompidas quando necessário
+- Gerenciamento inteligente de memória e armazenamento
 
 ---
 
@@ -65,21 +98,29 @@ Também é possível responder a uma mensagem com `!sticker` para transformá-la
 .
 ├── index.js          # Código principal do bot
 ├── package.json      # Dependências do projeto
-├── /auth_info        # Armazena dados de autenticação
-├── /temp             # Diretório temporário para arquivos
+├── /auth_info        # Armazena dados de autenticação (criado automaticamente)
+├── /temp             # Diretório temporário para arquivos (criado automaticamente)
+└── README.md         # Este arquivo
 ```
 
 ---
 
-## ⚠️ Observações
-- O WhatsApp pode **invalidar a sessão** caso o bot fique muito tempo offline.
-- Stickers animados são limitados a **6-8 segundos**.
-- Se o tamanho ultrapassar **500 KB**, o bot tenta recomprimir automaticamente.
+## ⚠️ Observações importantes
+- O WhatsApp pode **invalidar a sessão** caso o bot fique muito tempo offline
+- Figurinhas animadas são limitadas a **6-8 segundos** de duração
+- Se o tamanho ultrapassar **500 KB**, o bot tenta recomprimir automaticamente
+- As imagens convertidas de figurinhas são salvas em formato **PNG** com qualidade máxima
+- O bot rejeita chamadas automaticamente para evitar interrupções
 
 ---
 
-## 🛠 Tecnologias
-- [Node.js](https://nodejs.org/)  
-- [Baileys](https://github.com/WhiskeySockets/Baileys)  
-- [Sharp](https://sharp.pixelplumbing.com/)  
-- [FFmpeg](https://ffmpeg.org/)  
+## 🛠 Tecnologias utilizadas
+- [Node.js](https://nodejs.org/) - Runtime JavaScript
+- [Baileys](https://github.com/WhiskeySockets/Baileys) - Biblioteca WhatsApp Web API
+- [Sharp](https://sharp.pixelplumbing.com/) - Processamento de imagens
+- [FFmpeg](https://ffmpeg.org/) - Processamento de vídeos e GIFs
+
+---
+
+## 📝 Licença
+Este projeto é open source e está disponível sob a licença MIT.
