@@ -1,4 +1,21 @@
 {
+  "name": "whatsapp-sticker-bot",
+  "version": "1.0.0",
+  "description": "Bot para converter imagens, vídeos e stickers no WhatsApp",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "sticker",
+    "converter"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
     "@hapi/boom": "^10.0.1",
     "@whiskeysockets/baileys": "^6.7.18",
@@ -8,5 +25,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
