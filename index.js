@@ -5,7 +5,6 @@ import {
   downloadMediaMessage,
   fetchLatestBaileysVersion,
 } from "@whiskeysockets/baileys";
-import { Boom } from "@hapi/boom";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
@@ -21,15 +20,18 @@ try {
   console.log("💡 Para QR Code visual, instale: npm install qrcode-terminal");
 }
 
-const execAsync = promisify(exec);
 
 // ============================================================================
 // CONSTANTES
 // ============================================================================
 
+const execAsync = promisify(exec);
+
 const CONFIG = {
   TEMP_DIR: "./temp",
   AUTH_DIR: "./auth_info",
+  BLACKLIST_FILE: "./blacklist.json",
+  OWNER_NUMBER: "YOUR_NUMBER",
   MAX_RECONNECT_ATTEMPTS: 3,
   RECONNECT_DELAY: 5000,
   MIN_CLEAN_INTERVAL: 60000,
@@ -50,6 +52,11 @@ const COMMANDS = {
   STICKER: "!sticker",
   IMAGE: "!image",
   GIF: "!gif",
+  EVERYONE: "@everyone",
+  BLACKLIST_ADD: "!blacklist add",
+  BLACKLIST_REMOVE: "!blacklist remove",
+  BLACKLIST_LIST: "!blacklist list",
+  BLACKLIST_CLEAR: "!blacklist clear"
 };
 
 const MESSAGES = {
@@ -70,6 +77,7 @@ const MESSAGES = {
   REPLY_STICKER_GIF: "ℹ️ Responda a um sticker animado com !gif",
   STATIC_STICKER: "ℹ️ Este é um sticker estático. Use !image para converter",
   CONVERTED_IMAGE: "🖼️ Convertido!",
+  EVERYONE_COMMAND: "📢 @everyone - Marca todos os integrantes do grupo",
   CONVERTED_GIF: "🎬 Convertido!",
   DOWNLOAD_ERROR: "❌ Erro ao baixar",
   CONVERSION_ERROR: "❌ Erro na conversão",
@@ -423,8 +431,7 @@ class ConnectionManager {
     );
 
     Logger.info(
-      `⏳ Reconectando em ${delay / 1000}s (${this.reconnectAttempts}/${
-        CONFIG.MAX_RECONNECT_ATTEMPTS
+      `⏳ Reconectando em ${delay / 1000}s (${this.reconnectAttempts}/${CONFIG.MAX_RECONNECT_ATTEMPTS
       })...`
     );
 
@@ -469,26 +476,39 @@ class ConnectionManager {
 
 class MessageHandler {
   static async process(message, sock) {
-    const text = this.extractText(message);
+  const jid = message.key.remoteJid;
+  const text = this.extractText(message);
 
-    if (!text) return;
+  if (!text) return;
 
-    const command = this.detectCommand(text);
-
-    if (command === COMMANDS.STICKER) {
-      await this.handleStickerCommand(message, sock);
-    } else if (command === COMMANDS.IMAGE) {
-      await this.handleImageCommand(message, sock);
-    } else if (command === COMMANDS.GIF) {
-      await this.handleGifCommand(message, sock);
-    }
+  if (await this.handleBlacklistCommands(message, sock, text)) {
+    return;
   }
+
+  if (BlacklistManager.isBlocked(jid)) {
+    Logger.info(`🚫 Mensagem ignorada de grupo bloqueado: ${jid}`);
+    return;
+  }
+
+  const command = this.detectCommand(text);
+
+  if (command === COMMANDS.STICKER) {
+    await this.handleStickerCommand(message, sock);
+  } else if (command === COMMANDS.IMAGE) {
+    await this.handleImageCommand(message, sock);
+  } else if (command === COMMANDS.GIF) {
+    await this.handleGifCommand(message, sock);
+  } else if (command === COMMANDS.EVERYONE) {
+    await GroupManager.mentionEveryone(message, sock);
+  }
+}
 
   static detectCommand(text) {
     const lower = text.toLowerCase();
     if (lower.includes(COMMANDS.STICKER)) return COMMANDS.STICKER;
     if (lower.includes(COMMANDS.IMAGE)) return COMMANDS.IMAGE;
     if (lower.includes(COMMANDS.GIF)) return COMMANDS.GIF;
+    if (lower.includes(COMMANDS.EVERYONE.toLowerCase())) return COMMANDS.EVERYONE;
     return null;
   }
 
@@ -626,6 +646,84 @@ class MessageHandler {
       Logger.error("Erro ao enviar:", error);
     }
   }
+
+  static async handleBlacklistCommands(message, sock, text) {
+    const jid = message.key.remoteJid;
+    const lower = text.toLowerCase();
+
+    let senderNumber = null;
+    if (message.key.participantPn) {
+      senderNumber = message.key.participantPn.split('@')[0].split(':')[0];
+    } else if (message.key.participant) {
+      senderNumber = message.key.participant.split('@')[0].split(':')[0];
+    } else if (message.key.remoteJid) {
+      senderNumber = message.key.remoteJid.split('@')[0].split(':')[0];
+    }
+
+    if (lower === "!meunumero") {
+      await this.sendMessage(sock, jid,
+        `📱 Número detectado: ${senderNumber}\n\n` +
+        `Se este for seu número, configure em CONFIG.OWNER_NUMBER`
+      );
+      return true;
+    }
+
+    const fromMe = message.key.fromMe;
+    const isOwner = fromMe || senderNumber === CONFIG.OWNER_NUMBER;
+
+    if (!isOwner) {
+      return false;
+    }
+
+    if (lower.includes("!blacklist")) {
+      if (lower.includes("add")) {
+        if (BlacklistManager.add(jid)) {
+          await this.sendMessage(sock, jid, "🚫 Este grupo foi adicionado à blacklist. Até logo!");
+          Logger.info(`✅ Grupo ${jid} bloqueado`);
+        } else {
+          await this.sendMessage(sock, jid, "⚠️ Só posso bloquear grupos!");
+        }
+        return true;
+      }
+
+      if (lower.includes("remove")) {
+        if (BlacklistManager.remove(jid)) {
+          await this.sendMessage(sock, jid, "✅ Este grupo foi removido da blacklist!");
+        } else {
+          await this.sendMessage(sock, jid, "⚠️ Este grupo não estava na blacklist");
+        }
+        return true;
+      }
+
+      if (lower.includes("list")) {
+        const list = BlacklistManager.list();
+        if (list.length === 0) {
+          await this.sendMessage(sock, jid, "📋 Nenhum grupo na blacklist");
+        } else {
+          const listMessage = `📋 *Grupos bloqueados (${list.length}):*\n\n${list.join('\n')}`;
+          await this.sendMessage(sock, jid, listMessage);
+        }
+        return true;
+      }
+
+      if (lower.includes("clear")) {
+        BlacklistManager.clear();
+        await this.sendMessage(sock, jid, "🗑️ Blacklist limpa!");
+        return true;
+      }
+
+      await this.sendMessage(sock, jid,
+        `📋 *Comandos de Blacklist:*\n\n` +
+        `!blacklist add - Bloqueia grupo atual\n` +
+        `!blacklist remove - Desbloqueia grupo atual\n` +
+        `!blacklist list - Lista grupos bloqueados\n` +
+        `!blacklist clear - Limpa toda a blacklist`
+      );
+      return true;
+    }
+
+    return false;
+  }
 }
 
 // ============================================================================
@@ -729,8 +827,7 @@ class MediaProcessor {
     try {
       const metadata = await ImageProcessor.getMetadata(buffer);
       Logger.info(
-        `📐 Dimensões: ${metadata.width}x${metadata.height}, páginas: ${
-          metadata.pages || 1
+        `📐 Dimensões: ${metadata.width}x${metadata.height}, páginas: ${metadata.pages || 1
         }`
       );
 
@@ -806,7 +903,6 @@ class MediaProcessor {
 
       const gifOutput = path.join(CONFIG.TEMP_DIR, `gif_${Date.now()}.gif`);
 
-      // Tenta com libwebp (sem _anim)
       const altCmd = `ffmpeg -y -i "${inputWebp}" -vf "fps=${CONFIG.GIF_FPS},scale=512:512:flags=lanczos" -loop 0 "${gifOutput}"`;
 
       await execAsync(altCmd);
@@ -854,6 +950,127 @@ class MediaProcessor {
 }
 
 // ============================================================================
+// GERENCIADOR DE GRUPOS
+// ============================================================================
+
+class GroupManager {
+  static async mentionEveryone(message, sock) {
+    try {
+      const jid = message.key.remoteJid;
+
+      if (!jid.endsWith('@g.us')) {
+        await MessageHandler.sendMessage(
+          sock,
+          jid,
+          "⚠️ Este comando só funciona em grupos!"
+        );
+        return;
+      }
+
+      const groupMetadata = await sock.groupMetadata(jid);
+      const participants = groupMetadata.participants;
+
+      const sender = message.key.participant || message.key.remoteJid;
+      const isAdmin = participants.find(p => p.id === sender)?.admin;
+
+      if (!isAdmin) {
+        await MessageHandler.sendMessage(sock, jid, "⚠️ Apenas administradores podem usar este comando!");
+        return;
+      }
+
+      const mentions = participants.map(p => p.id);
+
+      const text = participants
+        .map(p => `@${p.id.split('@')[0]}`)
+        .join(' ');
+
+      await sock.sendMessage(jid, {
+        text: `📢 *Atenção geral!*\n\n${text}`,
+        mentions: mentions
+      });
+
+      Logger.info(`✅ Mencionados ${participants.length} participantes`);
+    } catch (error) {
+      Logger.error("Erro ao mencionar todos:", error);
+      await MessageHandler.sendMessage(
+        sock,
+        message.key.remoteJid,
+        "❌ Erro ao mencionar participantes"
+      );
+    }
+  }
+}
+
+// ============================================================================
+// GERENCIADOR DE BLACKLIST
+// ============================================================================
+
+class BlacklistManager {
+  static blacklist = new Set();
+
+  static initialize() {
+    try {
+      if (fs.existsSync(CONFIG.BLACKLIST_FILE)) {
+        const data = JSON.parse(fs.readFileSync(CONFIG.BLACKLIST_FILE, 'utf8'));
+        this.blacklist = new Set(data.groups || []);
+        Logger.info(`📋 Blacklist carregada: ${this.blacklist.size} grupos bloqueados`);
+      } else {
+        this.save();
+        Logger.info("📋 Arquivo de blacklist criado");
+      }
+    } catch (error) {
+      Logger.error("Erro ao carregar blacklist:", error);
+      this.blacklist = new Set();
+    }
+  }
+
+  static save() {
+    try {
+      const data = {
+        groups: Array.from(this.blacklist),
+        lastUpdate: new Date().toISOString()
+      };
+      fs.writeFileSync(CONFIG.BLACKLIST_FILE, JSON.stringify(data, null, 2));
+    } catch (error) {
+      Logger.error("Erro ao salvar blacklist:", error);
+    }
+  }
+
+  static isBlocked(jid) {
+    return this.blacklist.has(jid);
+  }
+
+  static add(jid) {
+    if (!jid.endsWith('@g.us')) {
+      return false; 
+    }
+    this.blacklist.add(jid);
+    this.save();
+    Logger.info(`🚫 Grupo adicionado à blacklist: ${jid}`);
+    return true;
+  }
+
+  static remove(jid) {
+    const removed = this.blacklist.delete(jid);
+    if (removed) {
+      this.save();
+      Logger.info(`✅ Grupo removido da blacklist: ${jid}`);
+    }
+    return removed;
+  }
+
+  static list() {
+    return Array.from(this.blacklist);
+  }
+
+  static clear() {
+    this.blacklist.clear();
+    this.save();
+    Logger.info("🗑️ Blacklist limpa");
+  }
+}
+
+// ============================================================================
 // INICIALIZAÇÃO
 // ============================================================================
 
@@ -863,10 +1080,14 @@ class BotInitializer {
       FileSystem.ensureDir(CONFIG.TEMP_DIR);
       FileSystem.ensureDir(CONFIG.AUTH_DIR);
 
+
+      BlacklistManager.initialize();
+
       Logger.info(MESSAGES.INITIALIZING);
       Logger.info(MESSAGES.STICKER_COMMAND);
       Logger.info(MESSAGES.IMAGE_COMMAND);
       Logger.info(MESSAGES.GIF_COMMAND);
+      Logger.info(MESSAGES.EVERYONE_COMMAND);
       Logger.info(MESSAGES.WAITING_QR);
 
       const connectionManager = new ConnectionManager();
