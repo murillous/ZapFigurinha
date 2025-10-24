@@ -50,6 +50,7 @@ const COMMANDS = {
   STICKER: "!sticker",
   IMAGE: "!image",
   GIF: "!gif",
+  VOTEKICK: "!votekick",
 };
 
 const MESSAGES = {
@@ -76,6 +77,15 @@ const MESSAGES = {
   UNSUPPORTED_FORMAT:
     "❌ Este sticker usa um formato que não consigo converter. Desculpe!",
   GENERAL_ERROR: "❌ Erro",
+  VOTE_STARTED: (target) => `🗳️ Votação iniciada para remover: ${target}\nVote com: !votekick yes ou !votekick no`,
+  VOTE_CAST: (who, choice, count, required) =>
+    `🗳️ ${who} votou ${choice}. (${count}/${required})`,
+  VOTE_PASSED: (target) => `✅ Votação aprovada. Removendo ${target}...`,
+  VOTE_FAILED: (target) => `❌ Votação para ${target} expirou sem votos suficientes.`,
+  VOTE_INVALID_USAGE: "❗ Uso: !votekick <number|@mention> — inicia uma votação no grupo",
+  VOTE_NOT_GROUP: "❗ Comando só pode ser usado em grupos",
+  VOTE_ALREADY_ACTIVE: "❗ Já existe uma votação ativa neste grupo",
+  VOTE_CANNOT_TARGET: "❗ Não foi possível processar o alvo da votação",
 };
 
 // ============================================================================
@@ -477,6 +487,8 @@ class MessageHandler {
 
     if (command === COMMANDS.STICKER) {
       await this.handleStickerCommand(message, sock);
+    } else if (command === COMMANDS.VOTEKICK) {
+      await this.handleVotekickCommand(message, sock, text);
     } else if (command === COMMANDS.IMAGE) {
       await this.handleImageCommand(message, sock);
     } else if (command === COMMANDS.GIF) {
@@ -487,6 +499,7 @@ class MessageHandler {
   static detectCommand(text) {
     const lower = text.toLowerCase();
     if (lower.includes(COMMANDS.STICKER)) return COMMANDS.STICKER;
+    if (lower.includes(COMMANDS.VOTEKICK)) return COMMANDS.VOTEKICK;
     if (lower.includes(COMMANDS.IMAGE)) return COMMANDS.IMAGE;
     if (lower.includes(COMMANDS.GIF)) return COMMANDS.GIF;
     return null;
@@ -626,6 +639,139 @@ class MessageHandler {
       Logger.error("Erro ao enviar:", error);
     }
   }
+
+  // activeVotes: Map<groupJid, { target: string, initiator: string, votes: Set, noVotes: Set, timeout: Timeout }>
+  static activeVotes = new Map();
+
+  static async handleVotekickCommand(message, sock, rawText) {
+    try {
+      const jid = message.key.remoteJid;
+
+      if (!jid || !jid.endsWith("@g.us")) {
+        await MessageHandler.sendMessage(sock, message.key.remoteJid, MESSAGES.VOTE_NOT_GROUP);
+        return;
+      }
+
+      const args = rawText.trim().split(/\s+/).slice(1);
+
+      if (args.length === 0) {
+        await MessageHandler.sendMessage(sock, jid, MESSAGES.VOTE_INVALID_USAGE);
+        return;
+      }
+
+      const sub = args[0].toLowerCase();
+
+      if (sub === "yes" || sub === "no") {
+        await MessageHandler.castVote(message, sock, jid, sub === "yes");
+        return;
+      }
+
+      const targetRaw = args[0];
+      let targetJid = targetRaw.includes("@") ? targetRaw : `${targetRaw}@s.whatsapp.net`;
+
+      if (!/^[0-9]+@s\.whatsapp\.net$/.test(targetJid)) {
+        await MessageHandler.sendMessage(sock, jid, MESSAGES.VOTE_CANNOT_TARGET);
+        return;
+      }
+
+      if (MessageHandler.activeVotes.has(jid)) {
+        await MessageHandler.sendMessage(sock, jid, MESSAGES.VOTE_ALREADY_ACTIVE);
+        return;
+      }
+
+      // Start vote
+      await MessageHandler.startVote(message, sock, jid, targetJid);
+    } catch (error) {
+      Logger.error("Erro em votekick:", error);
+    }
+  }
+
+  static async startVote(message, sock, groupJid, targetJid) {
+    try {
+      const meta = await sock.groupMetadata(groupJid);
+      const participants = meta?.participants?.length || 0;
+      const required = Math.max(3, Math.ceil(participants / 2));
+
+      const vote = {
+        target: targetJid,
+        initiator: message.key.participant || message.key.remoteJid,
+        votes: new Set(),
+        noVotes: new Set(),
+        required,
+        timeout: null,
+      };
+
+      vote.votes.add(vote.initiator);
+
+      MessageHandler.activeVotes.set(groupJid, vote);
+
+      await MessageHandler.sendMessage(sock, groupJid, MESSAGES.VOTE_STARTED(targetJid));
+
+      vote.timeout = setTimeout(async () => {
+        try {
+          const current = MessageHandler.activeVotes.get(groupJid);
+          if (!current) return;
+          if (current.votes.size >= current.required) {
+            await MessageHandler.executeKick(sock, groupJid, current.target);
+          } else {
+            await MessageHandler.sendMessage(sock, groupJid, MESSAGES.VOTE_FAILED(current.target));
+          }
+          MessageHandler.activeVotes.delete(groupJid);
+        } catch (e) {
+          Logger.error("Erro ao terminar votação:", e);
+        }
+      }, 120000); // 2 minutes
+    } catch (error) {
+      Logger.error("Erro ao iniciar votação:", error);
+      await MessageHandler.sendMessage(sock, groupJid, MESSAGES.GENERAL_ERROR);
+    }
+  }
+
+  static async castVote(message, sock, groupJid, isYes) {
+    try {
+      const vote = MessageHandler.activeVotes.get(groupJid);
+      const voter = message.key.participant || message.key.remoteJid;
+      if (!vote) {
+        await MessageHandler.sendMessage(sock, groupJid, "❗ Não existe votação ativa no momento.");
+        return;
+      }
+
+      if (isYes) {
+        vote.noVotes.delete(voter);
+        vote.votes.add(voter);
+      } else {
+        vote.votes.delete(voter);
+        vote.noVotes.add(voter);
+      }
+
+      await MessageHandler.sendMessage(
+        sock,
+        groupJid,
+        MESSAGES.VOTE_CAST(voter, isYes ? "SIM" : "NÃO", vote.votes.size, vote.required)
+      );
+
+      // Check threshold
+      if (vote.votes.size >= vote.required) {
+        clearTimeout(vote.timeout);
+        await MessageHandler.sendMessage(sock, groupJid, MESSAGES.VOTE_PASSED(vote.target));
+        await MessageHandler.executeKick(sock, groupJid, vote.target);
+        MessageHandler.activeVotes.delete(groupJid);
+      }
+    } catch (error) {
+      Logger.error("Erro ao registrar voto:", error);
+    }
+  }
+
+  static async executeKick(sock, groupJid, targetJid) {
+    try {
+      // attempt to remove participant
+      await sock.groupParticipantsUpdate(groupJid, [targetJid], "remove");
+      Logger.info(`Participant ${targetJid} removed from ${groupJid}`);
+    } catch (error) {
+      Logger.error("Erro ao remover participante:", error);
+      await MessageHandler.sendMessage(sock, groupJid, `❌ Falha ao remover ${targetJid}`);
+    }
+  }
 }
 
 // ============================================================================
@@ -634,6 +780,11 @@ class MessageHandler {
 
 class MediaProcessor {
   static async processToSticker(message, sock, targetJid = null) {
+    if (message.message?.viewOnceMessage || message.message?.viewOnceMessageV2) {
+      Logger.info("Blocked view-once message — no sticker created.");
+      return;
+    }
+
     try {
       const jid = targetJid || message.key.remoteJid;
       const buffer = await this.downloadMedia(message, sock);
