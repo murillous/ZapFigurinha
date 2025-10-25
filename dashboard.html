@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zapgigurinha - terminal dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-title">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span>zapFigurinha.sys terminal v1.0</span>
+            </div>
+            <div class="timestamp" id="currentTime">00:00:00</div>
+        </div>
+
+        <div class="main-content">
+            <!-- Control Panel -->
+            <div class="section">
+                <div class="section-header">Control Panel</div>
+                <div class="section-content">
+                    <div class="control-panel">
+                        <!-- Bot Status Toggle -->
+                        <div class="control-group">
+                            <div class="control-label">Bot Status</div>
+                            <div class="toggle-switch">
+                                <label class="switch">
+                                    <input type="checkbox" id="botToggle" checked>
+                                    <span class="slider"></span>
+                                </label>
+                                <span class="status-text online" id="statusText">● ONLINE</span>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="control-group">
+                            <div class="control-label">Quick Actions</div>
+                            <div class="button-group">
+                                <button class="btn success" onclick="dashboard.refreshPage()">
+                                    Refresh
+                                </button>
+                                <button class="btn danger" onclick="dashboard.clearLogs()">
+                                    Clear Logs
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Statistics -->
+                        <div class="control-group">
+                            <div class="control-label">Statistics</div>
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-label">Status</div>
+                                    <div class="stat-value" id="botStatus">RUNNING</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-label">Version</div>
+                                    <div class="stat-value" id="version">1.0.0</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Info Text -->
+                        <div class="info-text">
+                            > Bot em execução<br/>
+                            > Dashboard Monitor v1.0
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs/Output Section -->
+            <div class="section" style="flex: 1.5;">
+                <div class="section-header">
+                    <span>Console Output</span>
+                    <span style="font-size: 10px; font-weight: normal;">[ LIVE ]</span>
+                </div>
+                <div class="section-content" id="logsContainer">
+                    <div class="empty-state">» Aguardando dados...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="dashboard.js"></script>
+</body>
+</html>
