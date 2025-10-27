@@ -6,8 +6,7 @@ import {
 } from "@whiskeysockets/baileys";
 import fs from "fs";
 import pino from "pino";
-import { CONFIG } from "../config/constants.js";
-import { MESSAGES } from "../config/messages.js";
+import { CONFIG, MESSAGES } from "../config/constants.js";
 import { Logger } from "../utils/Logger.js";
 import { FileSystem } from "../utils/FileSystem.js";
 import { MessageHandler } from "../handlers/MessageHandler.js";

@@ -1,23 +1,36 @@
-import { COMMANDS, CONFIG } from "../config/constants.js";
-import { MESSAGES } from "../config/messages.js";
+import { COMMANDS, CONFIG, MESSAGES } from "../config/constants.js";
 import { Logger } from "../utils/Logger.js";
 import { MediaProcessor } from "./MediaProcessor.js";
 import { GroupManager } from "../managers/GroupManager.js";
 import { BlacklistManager } from "../managers/BlacklistManager.js";
+import { LumaHandler } from "./LumaHandler.js";
+import { LUMA_CONFIG } from "../config/lumaConfig.js";
 
 export class MessageHandler {
+  static lumaHandler = new LumaHandler();
+
   static async process(message, sock) {
     const jid = message.key.remoteJid;
     const text = this.extractText(message);
 
     if (!text) return;
 
-    if (await this.handleBlacklistCommands(message, sock, text)) {
+    if (await this.handleAdminCommands(message, sock, text)) {
       return;
     }
 
     if (BlacklistManager.isBlocked(jid)) {
       Logger.info(`🚫 Mensagem ignorada de grupo bloqueado: ${jid}`);
+      return;
+    }
+
+    if (this.lumaHandler.isReplyToLuma(message)) {
+      await this.handleLumaCommand(message, sock, true);
+      return;
+    }
+
+    if (LumaHandler.isTriggered(text)) {
+      await this.handleLumaCommand(message, sock, false);
       return;
     }
 
@@ -31,6 +44,193 @@ export class MessageHandler {
       await this.handleGifCommand(message, sock);
     } else if (command === COMMANDS.EVERYONE) {
       await GroupManager.mentionEveryone(message, sock);
+    }
+  }
+
+  static async handleAdminCommands(message, sock, text) {
+    const jid = message.key.remoteJid;
+    const lower = text.toLowerCase();
+
+    if (message.key.fromMe) {
+      Logger.info("📡 Mensagem enviada pelo próprio dono (fromMe = true)");
+    }
+
+    let senderNumber = null;
+    if (!message.key.fromMe) {
+      senderNumber = await this.getSenderNumber(message, sock);
+    }
+
+    if (lower === COMMANDS.MY_NUMBER) {
+      const debugInfo = message.key.fromMe
+        ? `fromMe: true\nsock.user.id: ${sock.user?.id || 'N/A'}`
+        : `participant: ${message.key.participant || 'N/A'}\nremoteJid: ${message.key.remoteJid}`;
+
+      const detected = message.key.fromMe
+        ? sock.user?.id?.split('@')[0].split(':')[0] || "Desconhecido"
+        : senderNumber || "Não identificado";
+
+      await this.sendMessage(sock, jid,
+        `📱 Número detectado: ${detected}\n\n` +
+        `Se este for seu número, configure em CONFIG.OWNER_NUMBER\n\n` +
+        `🔍 DEBUG:\n${debugInfo}`
+      );
+      return true;
+    }
+
+    const isOwner = message.key.fromMe || senderNumber === CONFIG.OWNER_NUMBER;
+    if (!isOwner) return false;
+
+    if (lower === COMMANDS.LUMA_STATS) {
+      const stats = this.lumaHandler.getStats();
+      const statsText = `📊 *Estatísticas da Luma*\n\n` +
+        `💬 Conversas ativas: ${stats.totalConversations}\n\n` +
+        (stats.conversations.length > 0
+          ? stats.conversations.slice(0, 10).map(c =>
+            `• ${c.jid}: ${c.messageCount} msgs\n  Última: ${c.lastUpdate}`
+          ).join('\n')
+          : 'Nenhuma conversa no momento');
+
+      await this.sendMessage(sock, jid, statsText);
+      return true;
+    }
+
+    if (lower === COMMANDS.LUMA_CLEAR) {
+      this.lumaHandler.clearHistory(jid);
+      await this.sendMessage(sock, jid, "🗑️ Histórico da Luma limpo nesta conversa!");
+      return true;
+    }
+
+    if (lower.includes("!blacklist")) {
+      if (lower.includes("add")) {
+        if (BlacklistManager.add(jid)) {
+          await this.sendMessage(sock, jid, "🚫 Este grupo foi adicionado à blacklist. Até logo!");
+          Logger.info(`✅ Grupo ${jid} bloqueado`);
+        } else {
+          await this.sendMessage(sock, jid, "⚠️ Só posso bloquear grupos!");
+        }
+        return true;
+      }
+
+      if (lower.includes("remove")) {
+        if (BlacklistManager.remove(jid)) {
+          await this.sendMessage(sock, jid, "✅ Este grupo foi removido da blacklist!");
+        } else {
+          await this.sendMessage(sock, jid, "⚠️ Este grupo não estava na blacklist");
+        }
+        return true;
+      }
+
+      if (lower.includes("list")) {
+        const list = BlacklistManager.list();
+        if (list.length === 0) {
+          await this.sendMessage(sock, jid, "📋 Nenhum grupo na blacklist");
+        } else {
+          const listMessage = `📋 *Grupos bloqueados (${list.length}):*\n\n${list.join('\n')}`;
+          await this.sendMessage(sock, jid, listMessage);
+        }
+        return true;
+      }
+
+      if (lower.includes("clear")) {
+        BlacklistManager.clear();
+        await this.sendMessage(sock, jid, "🗑️ Blacklist limpa!");
+        return true;
+      }
+
+      await this.sendMessage(sock, jid,
+        `📋 *Comandos Administrativos (apenas dono):*\n\n` +
+        `*BLACKLIST:*\n` +
+        `${COMMANDS.BLACKLIST_ADD} - Bloqueia grupo atual\n` +
+        `${COMMANDS.BLACKLIST_REMOVE} - Desbloqueia grupo atual\n` +
+        `${COMMANDS.BLACKLIST_LIST} - Lista grupos bloqueados\n` +
+        `${COMMANDS.BLACKLIST_CLEAR} - Limpa toda a blacklist\n\n` +
+        `*LUMA:*\n` +
+        `${COMMANDS.LUMA_STATS} - Estatísticas da Luma\n` +
+        `${COMMANDS.LUMA_CLEAR} - Limpa histórico da conversa`
+      );
+      return true;
+    }
+
+    return false;
+  }
+
+  static async getSenderNumber(message, sock) {
+    try {
+      let jid = (
+        message?.key?.participant ||
+        message?.participant ||
+        message?.message?.extendedTextMessage?.contextInfo?.participant ||
+        message?.key?.remoteJid
+      );
+
+      if (!jid) return null;
+
+      if (jid.includes('@lid')) {
+        try {
+          const results = await sock.onWhatsApp(jid);
+          if (results && results.length > 0 && results[0]?.jid) {
+            jid = results[0].jid;
+          }
+        } catch (e) {
+          Logger.warn(`⚠️ Não foi possível resolver LID ${jid}: ${e.message}`);
+        }
+      }
+
+      let number = jid.split('@')[0];
+      if (number.includes(':')) number = number.split(':')[0];
+      number = number.replace(/\D/g, '');
+
+      return number || null;
+    } catch (error) {
+      Logger.error("❌ Erro ao extrair número:", error);
+      return null;
+    }
+  }
+
+
+  static async handleLumaCommand(message, sock, isReply = false) {
+    try {
+      const jid = message.key.remoteJid;
+      const text = this.extractText(message);
+
+      let userMessage = isReply ? text : this.lumaHandler.extractUserMessage(text);
+
+      const quotedMessage = {
+        key: message.key,
+        message: message.message
+      };
+
+      if (!userMessage) {
+        const response = await sock.sendMessage(jid, {
+          text: this.lumaHandler.getRandomBoredResponse()
+        }, { quoted: quotedMessage });
+
+        if (response?.key?.id) {
+          this.lumaHandler.saveLastBotMessage(jid, response.key.id);
+        }
+        return;
+      }
+
+      await sock.sendPresenceUpdate('composing', jid);
+      await this.randomDelay();
+
+      const responseText = await this.lumaHandler.generateResponse(userMessage, jid);
+
+      const sentMessage = await sock.sendMessage(jid, {
+        text: responseText
+      }, { quoted: quotedMessage });
+
+      if (sentMessage?.key?.id) {
+        this.lumaHandler.saveLastBotMessage(jid, sentMessage.key.id);
+      }
+
+    } catch (error) {
+      Logger.error("❌ Erro no comando da Luma:", error);
+      await this.sendMessage(
+        sock,
+        message.key.remoteJid,
+        "Eita, deu ruim aqui... Minha mente fritou. Tenta de novo daqui a pouco que eu me recupero. 🤷‍♀️"
+      );
     }
   }
 
@@ -178,81 +378,10 @@ export class MessageHandler {
     }
   }
 
-  static async handleBlacklistCommands(message, sock, text) {
-    const jid = message.key.remoteJid;
-    const lower = text.toLowerCase();
-
-    let senderNumber = null;
-    if (message.key.participantPn) {
-      senderNumber = message.key.participantPn.split('@')[0].split(':')[0];
-    } else if (message.key.participant) {
-      senderNumber = message.key.participant.split('@')[0].split(':')[0];
-    } else if (message.key.remoteJid) {
-      senderNumber = message.key.remoteJid.split('@')[0].split(':')[0];
-    }
-
-    if (lower === "!meunumero") {
-      await this.sendMessage(sock, jid,
-        `📱 Número detectado: ${senderNumber}\n\n` +
-        `Se este for seu número, configure em CONFIG.OWNER_NUMBER`
-      );
-      return true;
-    }
-
-    const fromMe = message.key.fromMe;
-    const isOwner = fromMe || senderNumber === CONFIG.OWNER_NUMBER;
-
-    if (!isOwner) {
-      return false;
-    }
-
-    if (lower.includes("!blacklist")) {
-      if (lower.includes("add")) {
-        if (BlacklistManager.add(jid)) {
-          await this.sendMessage(sock, jid, "🚫 Este grupo foi adicionado à blacklist. Até logo!");
-          Logger.info(`✅ Grupo ${jid} bloqueado`);
-        } else {
-          await this.sendMessage(sock, jid, "⚠️ Só posso bloquear grupos!");
-        }
-        return true;
-      }
-
-      if (lower.includes("remove")) {
-        if (BlacklistManager.remove(jid)) {
-          await this.sendMessage(sock, jid, "✅ Este grupo foi removido da blacklist!");
-        } else {
-          await this.sendMessage(sock, jid, "⚠️ Este grupo não estava na blacklist");
-        }
-        return true;
-      }
-
-      if (lower.includes("list")) {
-        const list = BlacklistManager.list();
-        if (list.length === 0) {
-          await this.sendMessage(sock, jid, "📋 Nenhum grupo na blacklist");
-        } else {
-          const listMessage = `📋 *Grupos bloqueados (${list.length}):*\n\n${list.join('\n')}`;
-          await this.sendMessage(sock, jid, listMessage);
-        }
-        return true;
-      }
-
-      if (lower.includes("clear")) {
-        BlacklistManager.clear();
-        await this.sendMessage(sock, jid, "🗑️ Blacklist limpa!");
-        return true;
-      }
-
-      await this.sendMessage(sock, jid,
-        `📋 *Comandos de Blacklist:*\n\n` +
-        `!blacklist add - Bloqueia grupo atual\n` +
-        `!blacklist remove - Desbloqueia grupo atual\n` +
-        `!blacklist list - Lista grupos bloqueados\n` +
-        `!blacklist clear - Limpa toda a blacklist`
-      );
-      return true;
-    }
-
-    return false;
+  static async randomDelay() {
+    const { min, max } = LUMA_CONFIG.TECHNICAL.thinkingDelay;
+    await new Promise(resolve =>
+      setTimeout(resolve, min + Math.random() * (max - min))
+    );
   }
 }

@@ -1,9 +1,10 @@
 import { FileSystem } from "./src/utils/FileSystem.js";
 import { Logger } from "./src/utils/Logger.js";
-import { MESSAGES } from "./src/config/messages.js";
-import { CONFIG } from "./src/config/constants.js";
+import { CONFIG, MESSAGES } from "./src/config/constants.js";
 import { ConnectionManager } from "./src/managers/ConnectionManager.js";
 import { BlacklistManager } from "./src/managers/BlacklistManager.js";
+import dotenv from 'dotenv';
+dotenv.config();
 
 class BotInitializer {
   static async start() {

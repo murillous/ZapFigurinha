@@ -1,233 +1,232 @@
-import { downloadMediaMessage } from "@whiskeysockets/baileys";
-import { exec } from "child_process";
-import { promisify } from "util";
-import fs from "fs";
-import path from "path";
-import { CONFIG } from "../config/constants.js";
-import { MESSAGES } from "../config/messages.js";
-import { Logger } from "../utils/Logger.js";
-import { MessageHandler } from "./MessageHandler.js";
-import { ImageProcessor } from "../processors/ImageProcessor.js";
-import { VideoConverter } from "../processors/VideoConverter.js";
-import { FileSystem } from "../utils/FileSystem.js";
+  import { downloadMediaMessage } from "@whiskeysockets/baileys";
+  import { exec } from "child_process";
+  import { promisify } from "util";
+  import fs from "fs";
+  import path from "path";
+  import { CONFIG, MESSAGES } from "../config/constants.js";
+  import { Logger } from "../utils/Logger.js";
+  import { MessageHandler } from "./MessageHandler.js";
+  import { ImageProcessor } from "../processors/ImageProcessor.js";
+  import { VideoConverter } from "../processors/VideoConverter.js";
+  import { FileSystem } from "../utils/FileSystem.js";
 
-const execAsync = promisify(exec);
+  const execAsync = promisify(exec);
 
-export class MediaProcessor {
-  static async processToSticker(message, sock, targetJid = null) {
-    try {
-      const jid = targetJid || message.key.remoteJid;
-      const buffer = await this.downloadMedia(message, sock);
+  export class MediaProcessor {
+    static async processToSticker(message, sock, targetJid = null) {
+      try {
+        const jid = targetJid || message.key.remoteJid;
+        const buffer = await this.downloadMedia(message, sock);
 
-      if (!buffer) {
-        await MessageHandler.sendMessage(sock, jid, MESSAGES.DOWNLOAD_ERROR);
-        return;
+        if (!buffer) {
+          await MessageHandler.sendMessage(sock, jid, MESSAGES.DOWNLOAD_ERROR);
+          return;
+        }
+
+        const type = MessageHandler.getMessageType(message);
+        let stickerBuffer;
+
+        if (type === "image") {
+          stickerBuffer = await ImageProcessor.toSticker(buffer);
+        } else {
+          stickerBuffer = await VideoConverter.toSticker(buffer, type === "gif");
+        }
+
+        if (stickerBuffer) {
+          await sock.sendMessage(jid, { sticker: stickerBuffer });
+          Logger.info("✅ Sticker enviado");
+        } else {
+          await MessageHandler.sendMessage(sock, jid, MESSAGES.CONVERSION_ERROR);
+        }
+      } catch (error) {
+        Logger.error("Erro:", error);
+        await MessageHandler.sendMessage(
+          sock,
+          targetJid || message.key.remoteJid,
+          MESSAGES.GENERAL_ERROR
+        );
       }
-
-      const type = MessageHandler.getMessageType(message);
-      let stickerBuffer;
-
-      if (type === "image") {
-        stickerBuffer = await ImageProcessor.toSticker(buffer);
-      } else {
-        stickerBuffer = await VideoConverter.toSticker(buffer, type === "gif");
-      }
-
-      if (stickerBuffer) {
-        await sock.sendMessage(jid, { sticker: stickerBuffer });
-        Logger.info("✅ Sticker enviado");
-      } else {
-        await MessageHandler.sendMessage(sock, jid, MESSAGES.CONVERSION_ERROR);
-      }
-    } catch (error) {
-      Logger.error("Erro:", error);
-      await MessageHandler.sendMessage(
-        sock,
-        targetJid || message.key.remoteJid,
-        MESSAGES.GENERAL_ERROR
-      );
     }
-  }
 
-  static async processStickerToImage(message, sock, targetJid = null) {
-    try {
-      const jid = targetJid || message.key.remoteJid;
-      const buffer = await this.downloadMedia(message, sock);
+    static async processStickerToImage(message, sock, targetJid = null) {
+      try {
+        const jid = targetJid || message.key.remoteJid;
+        const buffer = await this.downloadMedia(message, sock);
 
-      if (!buffer) {
-        await MessageHandler.sendMessage(sock, jid, MESSAGES.DOWNLOAD_ERROR);
-        return;
+        if (!buffer) {
+          await MessageHandler.sendMessage(sock, jid, MESSAGES.DOWNLOAD_ERROR);
+          return;
+        }
+
+        const imageBuffer = await ImageProcessor.toPng(buffer);
+
+        await sock.sendMessage(jid, {
+          image: imageBuffer,
+          caption: MESSAGES.CONVERTED_IMAGE,
+        });
+
+        Logger.info("✅ Imagem enviada");
+      } catch (error) {
+        Logger.error("Erro:", error);
+        await MessageHandler.sendMessage(
+          sock,
+          targetJid || message.key.remoteJid,
+          MESSAGES.CONVERSION_ERROR
+        );
       }
-
-      const imageBuffer = await ImageProcessor.toPng(buffer);
-
-      await sock.sendMessage(jid, {
-        image: imageBuffer,
-        caption: MESSAGES.CONVERTED_IMAGE,
-      });
-
-      Logger.info("✅ Imagem enviada");
-    } catch (error) {
-      Logger.error("Erro:", error);
-      await MessageHandler.sendMessage(
-        sock,
-        targetJid || message.key.remoteJid,
-        MESSAGES.CONVERSION_ERROR
-      );
     }
-  }
 
-  static async processStickerToGif(message, sock, targetJid = null) {
-    try {
-      Logger.info("🎬 Convertendo sticker para GIF...");
-      const jid = targetJid || message.key.remoteJid;
+    static async processStickerToGif(message, sock, targetJid = null) {
+      try {
+        Logger.info("🎬 Convertendo sticker para GIF...");
+        const jid = targetJid || message.key.remoteJid;
 
-      const buffer = await this.downloadMedia(message, sock);
+        const buffer = await this.downloadMedia(message, sock);
 
-      if (!buffer) {
-        await MessageHandler.sendMessage(sock, jid, MESSAGES.DOWNLOAD_ERROR);
-        return;
+        if (!buffer) {
+          await MessageHandler.sendMessage(sock, jid, MESSAGES.DOWNLOAD_ERROR);
+          return;
+        }
+
+        Logger.info("📁 Sticker baixado");
+        Logger.info(`📊 Tamanho: ${(buffer.length / 1024).toFixed(1)}KB`);
+
+        await this.processAnimatedSticker(buffer, sock, jid);
+      } catch (error) {
+        Logger.error("❌ Erro geral:", error);
+        await MessageHandler.sendMessage(
+          sock,
+          targetJid || message.key.remoteJid,
+          MESSAGES.CONVERSION_ERROR
+        );
       }
-
-      Logger.info("📁 Sticker baixado");
-      Logger.info(`📊 Tamanho: ${(buffer.length / 1024).toFixed(1)}KB`);
-
-      await this.processAnimatedSticker(buffer, sock, jid);
-    } catch (error) {
-      Logger.error("❌ Erro geral:", error);
-      await MessageHandler.sendMessage(
-        sock,
-        targetJid || message.key.remoteJid,
-        MESSAGES.CONVERSION_ERROR
-      );
     }
-  }
 
-  static async processAnimatedSticker(buffer, sock, jid) {
-    const tempDir = path.join(CONFIG.TEMP_DIR, `frames_${Date.now()}`);
-    FileSystem.ensureDir(tempDir);
+    static async processAnimatedSticker(buffer, sock, jid) {
+      const tempDir = path.join(CONFIG.TEMP_DIR, `frames_${Date.now()}`);
+      FileSystem.ensureDir(tempDir);
 
-    try {
-      const metadata = await ImageProcessor.getMetadata(buffer);
-      Logger.info(
-        `📐 Dimensões: ${metadata.width}x${metadata.height}, páginas: ${metadata.pages || 1
-        }`
-      );
+      try {
+        const metadata = await ImageProcessor.getMetadata(buffer);
+        Logger.info(
+          `📐 Dimensões: ${metadata.width}x${metadata.height}, páginas: ${metadata.pages || 1
+          }`
+        );
 
-      if (!metadata.pages || metadata.pages === 1) {
-        await MessageHandler.sendMessage(sock, jid, MESSAGES.STATIC_STICKER);
+        if (!metadata.pages || metadata.pages === 1) {
+          await MessageHandler.sendMessage(sock, jid, MESSAGES.STATIC_STICKER);
+          fs.rmSync(tempDir, { recursive: true, force: true });
+          return;
+        }
+
+        Logger.info(`🎞️ Sticker tem ${metadata.pages} frames`);
+
+        await this.extractFrames(buffer, tempDir, metadata.pages);
+        await this.createAndSendGif(tempDir, sock, jid);
+      } catch (error) {
+        Logger.error("❌ Erro ao processar:", error);
+        await this.tryAlternativeMethod(buffer, sock, jid);
+      } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
-        return;
+      }
+    }
+
+    static async extractFrames(buffer, tempDir, pageCount) {
+      Logger.info("🔄 Extraindo frames do sticker animado...");
+
+      for (let i = 0; i < Math.min(pageCount, CONFIG.MAX_GIF_FRAMES); i++) {
+        await ImageProcessor.extractFrame(buffer, i, tempDir);
       }
 
-      Logger.info(`🎞️ Sticker tem ${metadata.pages} frames`);
-
-      await this.extractFrames(buffer, tempDir, metadata.pages);
-      await this.createAndSendGif(tempDir, sock, jid);
-    } catch (error) {
-      Logger.error("❌ Erro ao processar:", error);
-      await this.tryAlternativeMethod(buffer, sock, jid);
-    } finally {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-  }
-
-  static async extractFrames(buffer, tempDir, pageCount) {
-    Logger.info("🔄 Extraindo frames do sticker animado...");
-
-    for (let i = 0; i < Math.min(pageCount, CONFIG.MAX_GIF_FRAMES); i++) {
-      await ImageProcessor.extractFrame(buffer, i, tempDir);
+      Logger.info("✅ Frames extraídos");
     }
 
-    Logger.info("✅ Frames extraídos");
-  }
-
-  static async createAndSendGif(tempDir, sock, jid) {
-    const framesPattern = path.join(tempDir, "frame_%03d.png");
-    const gifOutput = await VideoConverter.toGif(framesPattern);
-
-    if (!fs.existsSync(gifOutput) || fs.statSync(gifOutput).size === 0) {
-      throw new Error("GIF não foi criado");
-    }
-
-    const gifSizeKB = (fs.statSync(gifOutput).size / 1024).toFixed(1);
-    Logger.info(`✅ GIF criado: ${gifSizeKB}KB`);
-
-    Logger.info("🔄 Convertendo GIF → MP4 para WhatsApp...");
-    const mp4Output = await VideoConverter.toMp4(gifOutput);
-
-    if (!fs.existsSync(mp4Output) || fs.statSync(mp4Output).size === 0) {
-      throw new Error("Falha ao criar MP4");
-    }
-
-    const mp4Buffer = fs.readFileSync(mp4Output);
-    const mp4SizeKB = (mp4Buffer.length / 1024).toFixed(1);
-    Logger.info(`✅ MP4 criado: ${mp4SizeKB}KB`);
-
-    await sock.sendMessage(jid, {
-      video: mp4Buffer,
-      caption: MESSAGES.CONVERTED_GIF,
-      gifPlayback: true,
-    });
-
-    Logger.info("✅ Enviado como GIF animado!");
-    FileSystem.cleanupFiles([mp4Output, gifOutput]);
-  }
-
-  static async tryAlternativeMethod(buffer, sock, jid) {
-    try {
-      Logger.info("🔄 Tentando método alternativo...");
-
-      const inputWebp = path.join(
-        CONFIG.TEMP_DIR,
-        `sticker_${Date.now()}.webp`
-      );
-      fs.writeFileSync(inputWebp, buffer);
-
-      const gifOutput = path.join(CONFIG.TEMP_DIR, `gif_${Date.now()}.gif`);
-
-      const altCmd = `ffmpeg -y -i "${inputWebp}" -vf "fps=${CONFIG.GIF_FPS},scale=512:512:flags=lanczos" -loop 0 "${gifOutput}"`;
-
-      await execAsync(altCmd);
+    static async createAndSendGif(tempDir, sock, jid) {
+      const framesPattern = path.join(tempDir, "frame_%03d.png");
+      const gifOutput = await VideoConverter.toGif(framesPattern);
 
       if (!fs.existsSync(gifOutput) || fs.statSync(gifOutput).size === 0) {
-        throw new Error("Método alternativo falhou");
+        throw new Error("GIF não foi criado");
       }
 
+      const gifSizeKB = (fs.statSync(gifOutput).size / 1024).toFixed(1);
+      Logger.info(`✅ GIF criado: ${gifSizeKB}KB`);
+
+      Logger.info("🔄 Convertendo GIF → MP4 para WhatsApp...");
       const mp4Output = await VideoConverter.toMp4(gifOutput);
 
-      if (fs.existsSync(mp4Output)) {
-        const mp4Buffer = fs.readFileSync(mp4Output);
-        await sock.sendMessage(jid, {
-          video: mp4Buffer,
-          caption: MESSAGES.CONVERTED_GIF,
-          gifPlayback: true,
-        });
-        Logger.info("✅ Método alternativo funcionou!");
-        FileSystem.cleanupFiles([mp4Output]);
+      if (!fs.existsSync(mp4Output) || fs.statSync(mp4Output).size === 0) {
+        throw new Error("Falha ao criar MP4");
       }
 
-      FileSystem.cleanupFiles([inputWebp, gifOutput]);
-    } catch (error) {
-      Logger.error("Todos os métodos falharam", error);
-      await MessageHandler.sendMessage(sock, jid, MESSAGES.UNSUPPORTED_FORMAT);
-    }
-  }
+      const mp4Buffer = fs.readFileSync(mp4Output);
+      const mp4SizeKB = (mp4Buffer.length / 1024).toFixed(1);
+      Logger.info(`✅ MP4 criado: ${mp4SizeKB}KB`);
 
-  static async downloadMedia(message, sock) {
-    try {
-      return await downloadMediaMessage(
-        message,
-        "buffer",
-        {},
-        {
-          logger: undefined,
-          reuploadRequest: sock.updateMediaMessage,
+      await sock.sendMessage(jid, {
+        video: mp4Buffer,
+        caption: MESSAGES.CONVERTED_GIF,
+        gifPlayback: true,
+      });
+
+      Logger.info("✅ Enviado como GIF animado!");
+      FileSystem.cleanupFiles([mp4Output, gifOutput]);
+    }
+
+    static async tryAlternativeMethod(buffer, sock, jid) {
+      try {
+        Logger.info("🔄 Tentando método alternativo...");
+
+        const inputWebp = path.join(
+          CONFIG.TEMP_DIR,
+          `sticker_${Date.now()}.webp`
+        );
+        fs.writeFileSync(inputWebp, buffer);
+
+        const gifOutput = path.join(CONFIG.TEMP_DIR, `gif_${Date.now()}.gif`);
+
+        const altCmd = `ffmpeg -y -i "${inputWebp}" -vf "fps=${CONFIG.GIF_FPS},scale=512:512:flags=lanczos" -loop 0 "${gifOutput}"`;
+
+        await execAsync(altCmd);
+
+        if (!fs.existsSync(gifOutput) || fs.statSync(gifOutput).size === 0) {
+          throw new Error("Método alternativo falhou");
         }
-      );
-    } catch (error) {
-      Logger.error("Erro ao baixar mídia:", error);
-      return null;
+
+        const mp4Output = await VideoConverter.toMp4(gifOutput);
+
+        if (fs.existsSync(mp4Output)) {
+          const mp4Buffer = fs.readFileSync(mp4Output);
+          await sock.sendMessage(jid, {
+            video: mp4Buffer,
+            caption: MESSAGES.CONVERTED_GIF,
+            gifPlayback: true,
+          });
+          Logger.info("✅ Método alternativo funcionou!");
+          FileSystem.cleanupFiles([mp4Output]);
+        }
+
+        FileSystem.cleanupFiles([inputWebp, gifOutput]);
+      } catch (error) {
+        Logger.error("Todos os métodos falharam", error);
+        await MessageHandler.sendMessage(sock, jid, MESSAGES.UNSUPPORTED_FORMAT);
+      }
+    }
+
+    static async downloadMedia(message, sock) {
+      try {
+        return await downloadMediaMessage(
+          message,
+          "buffer",
+          {},
+          {
+            logger: undefined,
+            reuploadRequest: sock.updateMediaMessage,
+          }
+        );
+      } catch (error) {
+        Logger.error("Erro ao baixar mídia:", error);
+        return null;
+      }
     }
   }
-}
