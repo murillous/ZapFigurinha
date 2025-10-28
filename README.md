@@ -1,12 +1,27 @@
-# 🤖 WhatsApp Sticker Bot
+# 🤖 WhatsApp Sticker Bot com IA
 
-Um bot profissional e completo para WhatsApp que converte imagens, vídeos e stickers em múltiplos formatos, com sistema de gerenciamento de grupos e moderação integrada.
+Um bot profissional e completo para WhatsApp que converte imagens, vídeos e stickers em múltiplos formatos, **agora com assistente virtual Luma com capacidade de visão!**
 
-Desenvolvido com [Baileys](https://github.com/WhiskeySockets/Baileys), [Sharp](https://sharp.pixelplumbing.com/) e [FFmpeg](https://ffmpeg.org/).
+Desenvolvido com [Baileys](https://github.com/WhiskeySockets/Baileys), [Sharp](https://sharp.pixelplumbing.com/), [FFmpeg](https://ffmpeg.org/) e [Google Gemini AI](https://ai.google.dev/).
 
 ---
 
 ## ✨ Funcionalidades
+
+### 🤖 Assistente Virtual Luma
+- **Conversação natural**: Fala como uma amiga no WhatsApp
+- **Visão de imagens**: Analisa fotos, figurinhas e memes
+- **Memória de contexto**: Lembra conversas anteriores
+- **Personalidade única**: Engraçada, sarcástica e descontraída
+- **Respostas inteligentes**: Comentários específicos sobre imagens
+
+**Como usar a Luma:**
+```
+• "luma, o que você acha dessa foto?" + [imagem]
+• Envie uma figurinha e pergunte: "ei luma, quem é esse?"
+• Responda a uma imagem: "luma, explica essa imagem"
+• Converse naturalmente: "oi luma, tudo bem?"
+```
 
 ### 🔄 Conversões de Mídia
 - **Imagens → Stickers**: Converte qualquer imagem em sticker estático
@@ -26,6 +41,7 @@ Desenvolvido com [Baileys](https://github.com/WhiskeySockets/Baileys), [Sharp](h
 - **Logs detalhados**: Rastreamento completo de todas as ações
 
 ### ⚡ Recursos Técnicos
+- **IA com visão multimodal** usando Gemini 2.0 Flash
 - **Reconexão automática inteligente** com backoff exponencial
 - **Limpeza automática de sessão** quando necessário
 - **Otimização automática** para manter stickers < 800 KB
@@ -67,7 +83,17 @@ sudo dnf install ffmpeg -y
 brew install ffmpeg
 ```
 
-### 4. Configurar o bot
+### 4. Configurar a API do Gemini (para Luma)
+
+1. Acesse [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Crie uma API Key gratuita
+3. Crie um arquivo `.env` na raiz do projeto:
+
+```env
+GEMINI_API_KEY=sua_chave_aqui
+```
+
+### 5. Configurar o bot
 
 Edite o arquivo `src/config/constants.js` e configure seu número:
 
@@ -107,6 +133,60 @@ npm run dev
 ---
 
 ## 🎯 Comandos disponíveis
+
+### 🤖 Assistente Virtual Luma
+
+#### **Conversação Natural**
+Acione a Luma usando qualquer um destes gatilhos:
+
+```
+• luma
+• ei luma
+• oi luma
+• e aí luma
+• fala luma
+• luminha
+• luminda
+```
+
+**Exemplos de uso:**
+```
+✅ "luma, como você está?"
+✅ "ei luma, me ajuda com uma coisa"
+✅ "oi luma, você conhece esse meme?" + [imagem]
+✅ Responder mensagem da Luma diretamente (sem precisar mencionar "luma")
+```
+
+#### **🖼️ Visão de Imagens**
+A Luma pode ver e comentar sobre:
+- 📸 Fotos
+- 🎭 Figurinhas/Stickers
+- 🎨 Memes
+- 📱 Screenshots
+- 🖼️ Qualquer imagem
+
+**Como usar:**
+```
+✅ Envie foto com legenda: "luma, o que você acha?"
+✅ Envie figurinha e pergunte: "ei luma, comenta essa"
+✅ Responda a uma imagem: "luma, explica essa foto"
+✅ Pergunte sobre detalhes: "luma, que lugar é esse?"
+```
+
+**Exemplos práticos:**
+```
+[Foto de comida] → "luma, isso tá com cara de bom?"
+  Luma: "Cara, essa pizza tá com uma cara BOA demais! 
+         Aquele queijo derretendo... Fiquei com fome kkkk"
+
+[Figurinha de meme] → "ei luma, explica esse meme"
+  Luma: "Kkkkk é o Stonks! Representa quando algo dá 
+         lucro de jeito inesperado. Clássico da internet 📈"
+
+[Foto de viagem] → "luma"
+  Luma: "Eita que praia LINDA! Olha a cor dessa água, 
+         parece Caribe. Tá me deixando com inveja aí kkkk"
+```
 
 ### Conversão de Mídia
 
@@ -187,15 +267,42 @@ Limpa completamente a blacklist.
 Digite: !blacklist clear
 ```
 
+### Comandos Administrativos da Luma (Apenas Proprietário)
+
+#### **📊 !luma stats**
+Exibe estatísticas de uso da Luma.
+
+**Mostra:**
+- Número de conversas ativas
+- Quantidade de mensagens por usuário
+- Última interação de cada conversa
+
+#### **🗑️ !luma clear**
+Limpa o histórico de conversa com a Luma na conversa atual.
+
+**Uso:**
+```
+Digite: !luma clear
+```
+
 **Observações importantes:**
 - 🔒 Apenas o proprietário configurado pode usar estes comandos
 - 📁 A blacklist é salva em `blacklist.json` e persiste entre reinicializações
 - 🚫 O bot ignorará automaticamente todas as mensagens de grupos bloqueados
-- ⚠️ Estes comandos funcionam apenas em grupos
+- 🧠 Histórico da Luma é limpo automaticamente após 2 horas de inatividade
 
 ---
 
 ## 💡 Exemplos de uso
+
+### Conversando com a Luma
+```
+✅ "luma, tudo bem?"              → Conversa casual
+✅ "ei luma, me ajuda aqui"       → Pedir ajuda
+✅ Foto + "luma, comenta"         → Análise de imagem
+✅ Figurinha + "ei luma"          → Comentar sticker
+✅ Responder mensagem dela        → Continuar conversa
+```
 
 ### Conversões básicas
 ```
@@ -219,6 +326,7 @@ Digite: !blacklist clear
 ✅ Bloquear grupo atual         → !blacklist add
 ✅ Desbloquear grupo            → !blacklist remove
 ✅ Ver grupos bloqueados        → !blacklist list
+✅ Ver stats da Luma            → !luma stats
 ```
 
 ---
@@ -230,8 +338,10 @@ whatsapp-sticker-bot/
 ├── src/
 │   ├── config/
 │   │   ├── constants.js          # Configurações centralizadas
+│   │   ├── lumaConfig.js         # Configuração da Luma (NOVO!)
 │   │   └── messages.js           # Mensagens do sistema
 │   ├── handlers/
+│   │   ├── LumaHandler.js        # Lógica da IA (NOVO!)
 │   │   ├── MediaProcessor.js     # Processamento de mídia
 │   │   └── MessageHandler.js     # Gerenciamento de mensagens
 │   ├── managers/
@@ -241,13 +351,10 @@ whatsapp-sticker-bot/
 │   ├── processors/
 │   │   ├── ImageProcessor.js     # Processamento de imagens
 │   │   └── VideoConverter.js     # Conversão de vídeos
-│   ├── public/
-│   │   ├── dashboard.html        # Dashboard (em desenvolvimento)
-│   │   ├── dashboard.js          # Lógica do dashboard
-│   │   └── styles.css            # Estilos do dashboard
 │   └── utils/
 │       ├── FileSystem.js         # Gerenciamento de arquivos
 │       └── Logger.js             # Sistema de logs
+├── .env                          # API Keys (criar manualmente)
 ├── index.js                      # Ponto de entrada
 ├── package.json
 ├── nodemon.json
@@ -274,45 +381,88 @@ whatsapp-sticker-bot/
 
 ## ⚙️ Configuração Avançada
 
-### Personalizar configurações
+### Personalizar a Luma
+
+Edite `src/config/lumaConfig.js`:
+
+```javascript
+export const LUMA_CONFIG = {
+  PERSONALITY: {
+    name: "Luma",
+    gender: "feminino",
+    style: "amigável, engraçada e levemente sarcástica",
+    // Personalize os traços de personalidade
+  },
+
+  TRIGGERS: [
+    /^luma[,!?]?\s+/i,
+    /^luma$/i,
+    // Adicione mais gatilhos personalizados
+  ],
+
+  TECHNICAL: {
+    model: "gemini-2.0-flash-exp",  // Modelo com visão
+    maxHistory: 20,                  // Mensagens no histórico
+    maxResponseLength: 800,          // Tamanho máximo da resposta
+    thinkingDelay: { min: 800, max: 2000 },  // Delay para parecer humano
+  },
+};
+```
+
+### Personalizar configurações gerais
 
 Edite `src/config/constants.js`:
 
 ```javascript
 export const CONFIG = {
   // Diretórios
-  TEMP_DIR: "./temp",                    // Arquivos temporários
-  AUTH_DIR: "./auth_info",               // Dados de autenticação
-  BLACKLIST_FILE: "./blacklist.json",    // Lista de grupos bloqueados
+  TEMP_DIR: "./temp",
+  AUTH_DIR: "./auth_info",
+  BLACKLIST_FILE: "./blacklist.json",
   
   // Segurança
-  OWNER_NUMBER: "5598988776655",         // Número do proprietário (com DDI)
+  OWNER_NUMBER: "5598988776655",
   
   // Reconexão
-  MAX_RECONNECT_ATTEMPTS: 3,             // Tentativas antes de limpar sessão
-  RECONNECT_DELAY: 5000,                 // Delay entre tentativas (ms)
-  MIN_CLEAN_INTERVAL: 60000,             // Intervalo mínimo entre limpezas
+  MAX_RECONNECT_ATTEMPTS: 3,
+  RECONNECT_DELAY: 5000,
+  MIN_CLEAN_INTERVAL: 60000,
   
   // Qualidade de mídia
-  STICKER_SIZE: 512,                     // Tamanho dos stickers (px)
-  STICKER_QUALITY: 90,                   // Qualidade WEBP (0-100)
-  VIDEO_DURATION: 6,                     // Duração máxima de vídeo (s)
-  GIF_DURATION: 8,                       // Duração máxima de GIF (s)
-  GIF_FPS: 15,                           // FPS para GIFs
-  VIDEO_FPS: 15,                         // FPS para vídeos
-  MAX_FILE_SIZE: 800,                    // Tamanho máximo (KB)
-  WEBP_QUALITY: 75,                      // Qualidade WEBP para stickers
-  MAX_GIF_FRAMES: 50,                    // Frames máximos para extração
+  STICKER_SIZE: 512,
+  STICKER_QUALITY: 90,
+  VIDEO_DURATION: 6,
+  GIF_DURATION: 8,
+  GIF_FPS: 15,
+  VIDEO_FPS: 15,
+  MAX_FILE_SIZE: 800,
+  WEBP_QUALITY: 75,
+  MAX_GIF_FRAMES: 50,
   
   // Timeouts
-  TIMEOUT_MS: 60000,                     // Timeout geral (ms)
-  KEEPALIVE_MS: 30000,                   // Intervalo keep-alive (ms)
+  TIMEOUT_MS: 60000,
+  KEEPALIVE_MS: 30000,
 };
 ```
 
 ---
 
 ## 🔧 Recursos Avançados
+
+### 🤖 Luma - Assistente com IA
+
+**Características:**
+- **Modelo**: Gemini 2.0 Flash Experimental (com visão multimodal)
+- **Memória**: Mantém contexto de até 20 mensagens por usuário
+- **Personalidade**: Amigável, engraçada e levemente sarcástica
+- **Limpeza automática**: Históricos antigos são removidos após 2 horas
+
+**Capacidades de Visão:**
+- Identifica objetos, pessoas, animais, lugares
+- Lê texto em imagens (memes, screenshots, etc)
+- Entende contexto e emoções em fotos
+- Comenta de forma específica e detalhada
+- Faz perguntas para continuar a conversa
 
 ### 🔄 Sistema de Reconexão Inteligente
 
@@ -335,11 +485,13 @@ export const CONFIG = {
 - Limpa sessões corrompidas quando detecta erros
 - Gerenciamento inteligente de memória
 - Cooldown entre limpezas
+- Histórico da Luma auto-limpa após inatividade
 
 ### 🎨 Processamento Otimizado
 
 - **Sharp**: Processamento rápido de imagens
 - **FFmpeg**: Conversão eficiente de vídeos/GIFs
+- **Gemini AI**: Análise inteligente de imagens
 - **Redimensionamento automático**: Sempre 512x512
 - **Compressão inteligente**: Mantém qualidade abaixo de 800 KB
 
@@ -349,6 +501,7 @@ export const CONFIG = {
 - Indicadores de progresso claros
 - Mensagens de erro descritivas
 - Rastreamento de todas as operações
+- Debug detalhado para Luma
 
 ---
 
@@ -359,20 +512,40 @@ export const CONFIG = {
 - Tamanho máximo de arquivo: **800 KB**
 - Sessões podem ser invalidadas se o bot ficar offline por muito tempo
 
+### Luma - IA
+- Requer **API Key** do Google Gemini (gratuita)
+- Modelo **gemini-2.0-flash-exp** suporta visão
+- Respostas limitadas a 800 caracteres
+- Histórico mantido por 2 horas de inatividade
+- **Não identifica pessoas específicas** por privacidade
+
 ### Comportamento do Bot
 - Compressão automática quando o arquivo ultrapassa 800 KB
 - Imagens convertidas são salvas em formato **PNG** com qualidade máxima
 - Stickers animados são convertidos para **MP4** para melhor compatibilidade
 - Blacklist é aplicada automaticamente sem notificação
+- Luma responde apenas quando mencionada ou em respostas diretas
 
 ### Desenvolvimento
 - **Nodemon** ignora `auth_info` e `temp` para evitar loops
 - Node.js **v18.0.0+** recomendado
-- Dashboard visual ainda em desenvolvimento
+- Arquivo `.env` é obrigatório para a Luma funcionar
 
 ---
 
 ## 🐛 Troubleshooting
+
+### Luma não responde
+- Verifique se o arquivo `.env` existe com `GEMINI_API_KEY`
+- Confirme que está usando `gemini-2.0-flash-exp` no `lumaConfig.js`
+- Mencione "luma" explicitamente na mensagem
+- Verifique os logs: deve aparecer `🖼️ Imagem será analisada pela Luma`
+
+### Luma não vê a imagem
+- Certifique-se de mencionar "luma" na legenda da imagem ou ao responder
+- Envie imagem + texto na **mesma mensagem** ou **responda** à imagem
+- Formatos suportados: JPG, PNG, WebP (figurinhas)
+- Verifique logs: deve aparecer `✅ Imagem convertida para base64`
 
 ### "Bad MAC Error"
 - Erro temporário de criptografia do WhatsApp
@@ -388,20 +561,15 @@ export const CONFIG = {
 - **Dica**: Envie vídeos/GIFs mais curtos (< 6 segundos)
 - Reduza a qualidade/resolução da mídia original
 
-### Nodemon reiniciando em loop
-- Certifique-se que `nodemon.json` existe
-- Use `npm start` em vez de `npm run dev` se persistir
-
 ### Comandos de blacklist não funcionam
 - Verifique se configurou `OWNER_NUMBER` corretamente
 - Use `!meunumero` para ver seu número no formato correto
 - Certifique-se de estar usando em um grupo (exceto `!blacklist list`)
 
-### Grupo não está sendo bloqueado
-- Verifique se o JID termina com `@g.us`
-- Confirme que você é o proprietário configurado
-- Verifique os logs para mensagens de erro
-- Arquivo `blacklist.json` deve existir
+### "API Key inválida" (Luma)
+- Verifique se a chave no `.env` está correta
+- Acesse [Google AI Studio](https://aistudio.google.com/app/apikey) e gere nova chave
+- Não use espaços ou aspas no `.env`
 
 ---
 
@@ -411,10 +579,12 @@ export const CONFIG = {
 |------------|--------|-----------|
 | [Node.js](https://nodejs.org/) | v18+ | Runtime JavaScript |
 | [Baileys](https://github.com/WhiskeySockets/Baileys) | v6.7.18 | WhatsApp Web API |
+| [Google Gemini AI](https://ai.google.dev/) | 2.0 Flash | IA com visão multimodal |
 | [Sharp](https://sharp.pixelplumbing.com/) | v0.32.6 | Processamento de imagens |
 | [FFmpeg](https://ffmpeg.org/) | Latest | Processamento de vídeos |
 | [Pino](https://getpino.io/) | v10.0.0 | Sistema de logs |
 | [QRCode Terminal](https://github.com/gtanner/qrcode-terminal) | v0.12.0 | Exibição de QR Code |
+| [dotenv](https://github.com/motdotla/dotenv) | v16.0.0 | Gerenciamento de variáveis de ambiente |
 
 ---
 
@@ -442,6 +612,7 @@ Contribuições são muito bem-vindas! Para contribuir:
 - Mantenha a arquitetura modular
 - Adicione comentários em código complexo
 - Teste suas mudanças antes de submeter
+- Respeite a personalidade da Luma
 
 ---
 
@@ -456,6 +627,7 @@ Este projeto é open source e está disponível sob a licença MIT.
 Desenvolvido por Murilo Castelhano
 
 **Funcionalidades principais:**
+- ✅ Assistente virtual com IA e visão
 - ✅ Conversão completa de mídia
 - ✅ Sistema de gerenciamento de grupos
 - ✅ Blacklist persistente
@@ -470,6 +642,7 @@ Desenvolvido por Murilo Castelhano
 
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Baileys](https://img.shields.io/badge/Baileys-6.7.18-25D366?logo=whatsapp&logoColor=white)](https://github.com/WhiskeySockets/Baileys)
+[![Gemini AI](https://img.shields.io/badge/Gemini-2.0%20Flash-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>

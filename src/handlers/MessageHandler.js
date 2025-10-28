@@ -13,15 +13,36 @@ export class MessageHandler {
     const jid = message.key.remoteJid;
     const text = this.extractText(message);
 
-    if (!text) return;
-
-    if (await this.handleAdminCommands(message, sock, text)) {
+    if (jid.endsWith('@g.us') && BlacklistManager.isBlocked(jid)) {
+      Logger.info(`🚫 Mensagem ignorada de grupo bloqueado: ${jid}`);
       return;
     }
 
-    if (BlacklistManager.isBlocked(jid)) {
-      Logger.info(`🚫 Mensagem ignorada de grupo bloqueado: ${jid}`);
+    if (text && await this.handleAdminCommands(message, sock, text)) {
       return;
+    }
+
+    if (text) {
+      const command = this.detectCommand(text);
+      if (command) {
+        if (command === COMMANDS.STICKER) {
+          await this.handleStickerCommand(message, sock);
+          return;
+        } else if (command === COMMANDS.IMAGE) {
+          await this.handleImageCommand(message, sock);
+          return;
+        } else if (command === COMMANDS.GIF) {
+          await this.handleGifCommand(message, sock);
+          return;
+        } else if (command === COMMANDS.EVERYONE) {
+          if (jid.endsWith('@g.us')) {
+            await GroupManager.mentionEveryone(message, sock);
+          } else {
+            await this.sendMessage(sock, jid, "⚠️ Este comando só funciona em grupos!");
+          }
+          return;
+        }
+      }
     }
 
     if (this.lumaHandler.isReplyToLuma(message)) {
@@ -29,31 +50,28 @@ export class MessageHandler {
       return;
     }
 
-    if (LumaHandler.isTriggered(text)) {
+    if (text && LumaHandler.isTriggered(text)) {
       await this.handleLumaCommand(message, sock, false);
       return;
     }
+  }
 
-    const command = this.detectCommand(text);
-
-    if (command === COMMANDS.STICKER) {
-      await this.handleStickerCommand(message, sock);
-    } else if (command === COMMANDS.IMAGE) {
-      await this.handleImageCommand(message, sock);
-    } else if (command === COMMANDS.GIF) {
-      await this.handleGifCommand(message, sock);
-    } else if (command === COMMANDS.EVERYONE) {
-      await GroupManager.mentionEveryone(message, sock);
-    }
+  static extractText(message) {
+    return (
+      message.message?.conversation ||
+      message.message?.extendedTextMessage?.text ||
+      message.message?.imageMessage?.caption ||
+      message.message?.videoMessage?.caption ||
+      null
+    );
   }
 
   static async handleAdminCommands(message, sock, text) {
     const jid = message.key.remoteJid;
-    const lower = text.toLowerCase();
 
-    if (message.key.fromMe) {
-      Logger.info("📡 Mensagem enviada pelo próprio dono (fromMe = true)");
-    }
+    if (!text) return false;
+
+    const lower = text.toLowerCase();
 
     let senderNumber = null;
     if (!message.key.fromMe) {
@@ -101,53 +119,6 @@ export class MessageHandler {
     }
 
     if (lower.includes("!blacklist")) {
-      if (lower.includes("add")) {
-        if (BlacklistManager.add(jid)) {
-          await this.sendMessage(sock, jid, "🚫 Este grupo foi adicionado à blacklist. Até logo!");
-          Logger.info(`✅ Grupo ${jid} bloqueado`);
-        } else {
-          await this.sendMessage(sock, jid, "⚠️ Só posso bloquear grupos!");
-        }
-        return true;
-      }
-
-      if (lower.includes("remove")) {
-        if (BlacklistManager.remove(jid)) {
-          await this.sendMessage(sock, jid, "✅ Este grupo foi removido da blacklist!");
-        } else {
-          await this.sendMessage(sock, jid, "⚠️ Este grupo não estava na blacklist");
-        }
-        return true;
-      }
-
-      if (lower.includes("list")) {
-        const list = BlacklistManager.list();
-        if (list.length === 0) {
-          await this.sendMessage(sock, jid, "📋 Nenhum grupo na blacklist");
-        } else {
-          const listMessage = `📋 *Grupos bloqueados (${list.length}):*\n\n${list.join('\n')}`;
-          await this.sendMessage(sock, jid, listMessage);
-        }
-        return true;
-      }
-
-      if (lower.includes("clear")) {
-        BlacklistManager.clear();
-        await this.sendMessage(sock, jid, "🗑️ Blacklist limpa!");
-        return true;
-      }
-
-      await this.sendMessage(sock, jid,
-        `📋 *Comandos Administrativos (apenas dono):*\n\n` +
-        `*BLACKLIST:*\n` +
-        `${COMMANDS.BLACKLIST_ADD} - Bloqueia grupo atual\n` +
-        `${COMMANDS.BLACKLIST_REMOVE} - Desbloqueia grupo atual\n` +
-        `${COMMANDS.BLACKLIST_LIST} - Lista grupos bloqueados\n` +
-        `${COMMANDS.BLACKLIST_CLEAR} - Limpa toda a blacklist\n\n` +
-        `*LUMA:*\n` +
-        `${COMMANDS.LUMA_STATS} - Estatísticas da Luma\n` +
-        `${COMMANDS.LUMA_CLEAR} - Limpa histórico da conversa`
-      );
       return true;
     }
 
@@ -199,13 +170,8 @@ export class MessageHandler {
         message: message.message
       };
 
-      // ✅ NOVO: Verifica se há imagem/sticker na mensagem ou na resposta
       const hasVisualContent = await this.hasVisualContent(message);
-      
-      // Log de debug
-      Logger.info(`📊 Debug Luma: userMessage="${userMessage}", hasVisual=${hasVisualContent}`);
 
-      // ✅ MODIFICADO: Também verifica hasVisualContent
       if (!userMessage && !hasVisualContent) {
         const response = await sock.sendMessage(jid, {
           text: this.lumaHandler.getRandomBoredResponse()
@@ -217,7 +183,6 @@ export class MessageHandler {
         return;
       }
 
-      // ✅ NOVO: Se não tem texto mas tem imagem
       if (!userMessage && hasVisualContent) {
         userMessage = "O que você acha dessa imagem?";
       }
@@ -225,12 +190,11 @@ export class MessageHandler {
       await sock.sendPresenceUpdate('composing', jid);
       await this.randomDelay();
 
-      // ✅ MODIFICADO: Passa message e sock para análise de imagem
       const responseText = await this.lumaHandler.generateResponse(
-        userMessage, 
-        jid, 
-        message,  // ← Passa a mensagem completa
-        sock      // ← Passa o socket
+        userMessage,
+        jid,
+        message,
+        sock
       );
 
       const sentMessage = await sock.sendMessage(jid, {
@@ -252,16 +216,12 @@ export class MessageHandler {
   }
 
   static async hasVisualContent(message) {
-    // Verifica se tem imagem/sticker diretamente
     if (message.message?.imageMessage || message.message?.stickerMessage) {
-      Logger.info("✅ Visual content: imagem/sticker na mensagem atual");
       return true;
     }
 
-    // Verifica se é resposta a uma mensagem com imagem/sticker
     const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     if (quotedMsg?.imageMessage || quotedMsg?.stickerMessage) {
-      Logger.info("✅ Visual content: imagem/sticker na mensagem citada");
       return true;
     }
 
@@ -275,16 +235,6 @@ export class MessageHandler {
     if (lower.includes(COMMANDS.GIF)) return COMMANDS.GIF;
     if (lower.includes(COMMANDS.EVERYONE.toLowerCase())) return COMMANDS.EVERYONE;
     return null;
-  }
-
-  static extractText(message) {
-    return (
-      message.message?.conversation ||
-      message.message?.extendedTextMessage?.text ||
-      message.message?.imageMessage?.caption ||
-      message.message?.videoMessage?.caption ||
-      null
-    );
   }
 
   static async handleStickerCommand(message, sock) {
