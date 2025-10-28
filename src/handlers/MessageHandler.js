@@ -92,13 +92,15 @@ export class MessageHandler {
 
       await this.sendMessage(sock, jid,
         `📱 Número detectado: ${detected}\n\n` +
-        `Se este for seu número, configure em .env.OWNER_NUMBER\n\n` +
+        `Se este for seu número, configure em .env como OWNER_NUMBER\n\n` +
         `🔍 DEBUG:\n${debugInfo}`
       );
       return true;
     }
 
-    const isOwner = message.key.fromMe || senderNumber === process.env.OWNER_NUMBER;
+    const ownerNumber = process.env.OWNER_NUMBER?.replace(/\D/g, '');
+    const isOwner = message.key.fromMe || (senderNumber && senderNumber === ownerNumber);
+    
     if (!isOwner) return false;
 
     if (lower === COMMANDS.LUMA_STATS) {
@@ -121,7 +123,63 @@ export class MessageHandler {
       return true;
     }
 
-    if (lower.includes("!blacklist")) {
+    if (lower.startsWith("!blacklist")) {
+      const parts = lower.split(" ");
+      const action = parts[1];
+
+      if (action === "add") {
+        if (!jid.endsWith('@g.us')) {
+          await this.sendMessage(sock, jid, "⚠️ Este comando só funciona em grupos!");
+          return true;
+        }
+        
+        const added = BlacklistManager.add(jid);
+        if (added) {
+          await this.sendMessage(sock, jid, "🚫 Grupo adicionado à blacklist! O bot ignorará mensagens daqui.");
+        } else {
+          await this.sendMessage(sock, jid, "❌ Erro ao adicionar à blacklist");
+        }
+        return true;
+      }
+
+      if (action === "remove") {
+        if (!jid.endsWith('@g.us')) {
+          await this.sendMessage(sock, jid, "⚠️ Este comando só funciona em grupos!");
+          return true;
+        }
+        
+        const removed = BlacklistManager.remove(jid);
+        if (removed) {
+          await this.sendMessage(sock, jid, "✅ Grupo removido da blacklist!");
+        } else {
+          await this.sendMessage(sock, jid, "⚠️ Este grupo não estava na blacklist");
+        }
+        return true;
+      }
+
+      if (action === "list") {
+        const list = BlacklistManager.list();
+        const listText = list.length > 0
+          ? `📋 *Grupos bloqueados:*\n\n${list.map((g, i) => `${i + 1}. ${g}`).join('\n')}`
+          : "📋 Nenhum grupo na blacklist";
+        
+        await this.sendMessage(sock, jid, listText);
+        return true;
+      }
+
+      if (action === "clear") {
+        BlacklistManager.clear();
+        await this.sendMessage(sock, jid, "🗑️ Blacklist limpa!");
+        return true;
+      }
+
+      await this.sendMessage(sock, jid,
+        `📋 *Comandos de Blacklist:*\n\n` +
+        `!blacklist add - Bloqueia o grupo atual\n` +
+        `!blacklist remove - Desbloqueia o grupo atual\n` +
+        `!blacklist list - Lista grupos bloqueados\n` +
+        `!blacklist clear - Limpa toda a blacklist`
+      );
       return true;
     }
 
@@ -213,7 +271,7 @@ export class MessageHandler {
       await this.sendMessage(
         sock,
         message.key.remoteJid,
-        "Eita, deu ruim aqui... Minha mente fritou. Tenta de novo daqui a pouco que eu me recupero. 🤷‍♀️"
+        "Num deu certo não. Bugou aqui, tenta depois"
       );
     }
   }
