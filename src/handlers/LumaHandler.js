@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { Logger } from "../utils/Logger.js";
 import { LUMA_CONFIG } from "../config/lumaConfig.js";
+import { MediaProcessor } from "./MediaProcessor.js";
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,7 +10,7 @@ export class LumaHandler {
   constructor() {
     this.apiKey = process.env.GEMINI_API_KEY;
     this.isConfigured = this.validateConfiguration();
-    
+
     if (this.isConfigured) {
       this.initializeAI();
       this.startCleanupInterval();
@@ -123,13 +124,94 @@ export class LumaHandler {
       .trim();
   }
 
-  async generateResponse(userMessage, userJid) {
+  async extractImageFromMessage(message, sock) {
+    try {
+      // Verifica se a mensagem tem imagem diretamente
+      if (message.message?.imageMessage) {
+        Logger.info("🖼️ Imagem detectada na mensagem atual");
+        return await this.convertImageToBase64(message, sock);
+      }
+
+      // Verifica se a mensagem tem sticker
+      if (message.message?.stickerMessage) {
+        Logger.info("🎭 Figurinha detectada na mensagem atual");
+        return await this.convertImageToBase64(message, sock);
+      }
+
+      // Verifica se é resposta a uma mensagem com imagem
+      const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      if (quotedMsg?.imageMessage) {
+        Logger.info("🖼️ Imagem detectada na mensagem citada");
+        const quotedMessage = {
+          message: { imageMessage: quotedMsg.imageMessage },
+          key: message.key
+        };
+        return await this.convertImageToBase64(quotedMessage, sock);
+      }
+
+      // Verifica se é resposta a uma figurinha
+      if (quotedMsg?.stickerMessage) {
+        Logger.info("🎭 Figurinha detectada na mensagem citada");
+        const quotedMessage = {
+          message: { stickerMessage: quotedMsg.stickerMessage },
+          key: message.key
+        };
+        return await this.convertImageToBase64(quotedMessage, sock);
+      }
+
+      return null;
+    } catch (error) {
+      Logger.error("❌ Erro ao extrair imagem:", error);
+      return null;
+    }
+  }
+
+  async convertImageToBase64(message, sock) {
+    try {
+
+      const buffer = await MediaProcessor.downloadMedia(message, sock);
+
+      if (!buffer) return null;
+
+      const base64Image = buffer.toString('base64');
+
+      let mimeType = 'image/jpeg';
+      if (message.message?.imageMessage?.mimetype) {
+        mimeType = message.message.imageMessage.mimetype;
+      } else if (message.message?.stickerMessage) {
+        mimeType = 'image/webp';
+      }
+
+      Logger.info(`✅ Imagem convertida para base64 (${(base64Image.length / 1024).toFixed(1)}KB)`);
+
+      return {
+        inlineData: {
+          data: base64Image,
+          mimeType: mimeType
+        }
+      };
+    } catch (error) {
+      Logger.error("❌ Erro ao converter imagem:", error);
+      return null;
+    }
+  }
+
+  async generateResponse(userMessage, userJid, message = null, sock = null) {
     if (!this.isConfigured) {
       return this.getErrorResponse('API_KEY_MISSING');
     }
 
     try {
-      const prompt = this.buildPrompt(userMessage, userJid);
+      // Tenta extrair imagem se message e sock forem fornecidos
+      let imageData = null;
+      if (message && sock) {
+        imageData = await this.extractImageFromMessage(message, sock);
+        if (imageData) {
+          Logger.info("🖼️ Imagem será analisada pela Luma");
+        }
+      }
+
+      const prompt = this.buildPrompt(userMessage, userJid, imageData);
       const response = await this.sendToAI(prompt);
 
       const cleanedResponse = this.cleanResponse(response);
@@ -159,13 +241,31 @@ export class LumaHandler {
     return response.text;
   }
 
-  buildPrompt(userMessage, userJid) {
+  buildPrompt(userMessage, userJid, imageData = null) {
     const history = this.getHistory(userJid);
     const hasHistory = history !== "Nenhuma conversa anterior.";
 
-    return LUMA_CONFIG.PROMPT_TEMPLATE
+    // Se há imagem, adiciona instruções de visão
+    let promptTemplate = LUMA_CONFIG.PROMPT_TEMPLATE;
+
+    if (imageData) {
+      promptTemplate = LUMA_CONFIG.VISION_PROMPT_TEMPLATE;
+    }
+
+    const prompt = promptTemplate
       .replace('{{HISTORY_PLACEHOLDER}}', hasHistory ? `CONVERSA ANTERIOR:\n${history}\n` : '')
       .replace('{{USER_MESSAGE}}', userMessage);
+
+    // Se há imagem, retorna array com texto e imagem
+    if (imageData) {
+      return [
+        { text: prompt },
+        imageData
+      ];
+    }
+
+    // Sem imagem, retorna só o texto
+    return prompt;
   }
 
   cleanResponse(text) {
@@ -190,16 +290,16 @@ export class LumaHandler {
     switch (type) {
       case 'API_KEY_MISSING':
         return errorConfig.API_KEY_MISSING;
-      
+
       case 'API_KEY_INVALID':
         return errorConfig.API_KEY_INVALID;
-      
+
       case 'QUOTA_EXCEEDED':
         return errorConfig.QUOTA_EXCEEDED;
-      
+
       case 'MODEL_NOT_FOUND':
         return errorConfig.MODEL_NOT_FOUND;
-      
+
       default:
         const generalErrors = errorConfig.GENERAL;
         return generalErrors[Math.floor(Math.random() * generalErrors.length)];

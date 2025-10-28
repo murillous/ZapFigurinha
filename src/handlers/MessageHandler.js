@@ -187,7 +187,6 @@ export class MessageHandler {
     }
   }
 
-
   static async handleLumaCommand(message, sock, isReply = false) {
     try {
       const jid = message.key.remoteJid;
@@ -200,7 +199,14 @@ export class MessageHandler {
         message: message.message
       };
 
-      if (!userMessage) {
+      // ✅ NOVO: Verifica se há imagem/sticker na mensagem ou na resposta
+      const hasVisualContent = await this.hasVisualContent(message);
+      
+      // Log de debug
+      Logger.info(`📊 Debug Luma: userMessage="${userMessage}", hasVisual=${hasVisualContent}`);
+
+      // ✅ MODIFICADO: Também verifica hasVisualContent
+      if (!userMessage && !hasVisualContent) {
         const response = await sock.sendMessage(jid, {
           text: this.lumaHandler.getRandomBoredResponse()
         }, { quoted: quotedMessage });
@@ -211,10 +217,21 @@ export class MessageHandler {
         return;
       }
 
+      // ✅ NOVO: Se não tem texto mas tem imagem
+      if (!userMessage && hasVisualContent) {
+        userMessage = "O que você acha dessa imagem?";
+      }
+
       await sock.sendPresenceUpdate('composing', jid);
       await this.randomDelay();
 
-      const responseText = await this.lumaHandler.generateResponse(userMessage, jid);
+      // ✅ MODIFICADO: Passa message e sock para análise de imagem
+      const responseText = await this.lumaHandler.generateResponse(
+        userMessage, 
+        jid, 
+        message,  // ← Passa a mensagem completa
+        sock      // ← Passa o socket
+      );
 
       const sentMessage = await sock.sendMessage(jid, {
         text: responseText
@@ -232,6 +249,23 @@ export class MessageHandler {
         "Eita, deu ruim aqui... Minha mente fritou. Tenta de novo daqui a pouco que eu me recupero. 🤷‍♀️"
       );
     }
+  }
+
+  static async hasVisualContent(message) {
+    // Verifica se tem imagem/sticker diretamente
+    if (message.message?.imageMessage || message.message?.stickerMessage) {
+      Logger.info("✅ Visual content: imagem/sticker na mensagem atual");
+      return true;
+    }
+
+    // Verifica se é resposta a uma mensagem com imagem/sticker
+    const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    if (quotedMsg?.imageMessage || quotedMsg?.stickerMessage) {
+      Logger.info("✅ Visual content: imagem/sticker na mensagem citada");
+      return true;
+    }
+
+    return false;
   }
 
   static detectCommand(text) {
