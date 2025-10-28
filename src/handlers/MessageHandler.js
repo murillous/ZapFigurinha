@@ -17,8 +17,16 @@ export class MessageHandler {
     const text = this.extractText(message);
 
     if (jid.endsWith('@g.us') && BlacklistManager.isBlocked(jid)) {
-      Logger.info(`🚫 Mensagem ignorada de grupo bloqueado: ${jid}`);
-      return;
+      const ownerNumber = process.env.OWNER_NUMBER?.replace(/\D/g, '');
+      const senderNumber = message.key.fromMe ? ownerNumber : await this.getSenderNumber(message, sock);
+      const isOwner = message.key.fromMe || senderNumber === ownerNumber;
+      
+      if (!isOwner) {
+        Logger.info(`🚫 Mensagem ignorada de grupo bloqueado: ${jid} (usuário: ${senderNumber})`);
+        return;
+      }
+      
+      Logger.info(`✅ Mensagem permitida em grupo bloqueado: ${jid} (owner: ${senderNumber})`);
     }
 
     if (text && await this.handleAdminCommands(message, sock, text)) {
