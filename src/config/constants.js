@@ -2,7 +2,6 @@ export const CONFIG = {
   TEMP_DIR: "./temp",
   AUTH_DIR: "./auth_info", 
   BLACKLIST_FILE: "./blacklist.json",
-  OWNER_NUMBER: "YOUR_NUMBER",
   MAX_RECONNECT_ATTEMPTS: 3,
   RECONNECT_DELAY: 5000,
   MIN_CLEAN_INTERVAL: 60000,

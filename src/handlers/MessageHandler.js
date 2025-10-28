@@ -5,6 +5,9 @@ import { GroupManager } from "../managers/GroupManager.js";
 import { BlacklistManager } from "../managers/BlacklistManager.js";
 import { LumaHandler } from "./LumaHandler.js";
 import { LUMA_CONFIG } from "../config/lumaConfig.js";
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export class MessageHandler {
   static lumaHandler = new LumaHandler();
@@ -89,13 +92,13 @@ export class MessageHandler {
 
       await this.sendMessage(sock, jid,
         `📱 Número detectado: ${detected}\n\n` +
-        `Se este for seu número, configure em CONFIG.OWNER_NUMBER\n\n` +
+        `Se este for seu número, configure em .env.OWNER_NUMBER\n\n` +
         `🔍 DEBUG:\n${debugInfo}`
       );
       return true;
     }
 
-    const isOwner = message.key.fromMe || senderNumber === CONFIG.OWNER_NUMBER;
+    const isOwner = message.key.fromMe || senderNumber === process.env.OWNER_NUMBER;
     if (!isOwner) return false;
 
     if (lower === COMMANDS.LUMA_STATS) {
