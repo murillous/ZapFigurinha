@@ -39,14 +39,15 @@ export class ConnectionManager {
       this.closeSafely();
       Logger.info(MESSAGES.CONNECTING);
 
-      const { version, isLatest } = await fetchLatestBaileysVersion();
-      Logger.info(`📦 Usando WA v${version.join(".")}, isLatest: ${isLatest}`);
+      // const { version, isLatest } = await fetchLatestBaileysVersion();
+      Logger.info(`📦 Usando WA v${[2, 3000, 1027934701].join(".")}`);
+      // Logger.info(`📦 Usando WA v${version.join(".")}, isLatest: ${isLatest}`);
 
       const { state, saveCreds } = await useMultiFileAuthState(CONFIG.AUTH_DIR);
       const logger = pino({ level: process.env.LOG_LEVEL || "silent" });
 
       this.sock = makeWASocket({
-        version,
+        version: [2, 3000, 1027934701],
         auth: state,
         logger,
         browser: ["Ubuntu", "Chrome", "20.0.04"],
@@ -210,7 +211,8 @@ export class ConnectionManager {
     );
 
     Logger.info(
-      `⏳ Reconectando em ${delay / 1000}s (${this.reconnectAttempts}/${CONFIG.MAX_RECONNECT_ATTEMPTS
+      `⏳ Reconectando em ${delay / 1000}s (${this.reconnectAttempts}/${
+        CONFIG.MAX_RECONNECT_ATTEMPTS
       })...`
     );
 

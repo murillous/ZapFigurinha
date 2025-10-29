@@ -6,7 +6,7 @@ export class GroupManager {
     try {
       const jid = message.key.remoteJid;
 
-      if (!jid.endsWith('@g.us')) {
+      if (!jid.endsWith("@g.us")) {
         await MessageHandler.sendMessage(
           sock,
           jid,
@@ -19,22 +19,24 @@ export class GroupManager {
       const participants = groupMetadata.participants;
 
       const sender = message.key.participant || message.key.remoteJid;
-      const isAdmin = participants.find(p => p.id === sender)?.admin;
+      const isAdmin = participants.find((p) => p.id === sender)?.admin;
 
       if (!isAdmin) {
-        await MessageHandler.sendMessage(sock, jid, "⚠️ Apenas administradores podem usar este comando!");
+        await MessageHandler.sendMessage(
+          sock,
+          jid,
+          "⚠️ Apenas administradores podem usar este comando!"
+        );
         return;
       }
 
-      const mentions = participants.map(p => p.id);
+      const mentions = participants.map((p) => p.id);
 
-      const text = participants
-        .map(p => `@${p.id.split('@')[0]}`)
-        .join(' ');
+      const text = participants.map((p) => `@${p.id.split("@")[0]}`).join(" ");
 
       await sock.sendMessage(jid, {
         text: `📢 *Atenção geral!*\n\n${text}`,
-        mentions: mentions
+        mentions: mentions,
       });
 
       Logger.info(`✅ Mencionados ${participants.length} participantes`);

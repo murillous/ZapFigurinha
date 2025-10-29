@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { Logger } from "../utils/Logger.js";
 import { LUMA_CONFIG } from "../config/lumaConfig.js";
 import { MediaProcessor } from "./MediaProcessor.js";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -18,7 +18,7 @@ export class LumaHandler {
   }
 
   validateConfiguration() {
-    if (!this.apiKey || this.apiKey === 'Sua Chave Aqui') {
+    if (!this.apiKey || this.apiKey === "Sua Chave Aqui") {
       Logger.error("❌ GEMINI_API_KEY não configurada no .env!");
       Logger.info("📝 Configure no .env: GEMINI_API_KEY=sua_chave_aqui");
       return false;
@@ -42,12 +42,17 @@ export class LumaHandler {
   }
 
   startCleanupInterval() {
-    setInterval(() => this.cleanOldHistories(), LUMA_CONFIG.TECHNICAL.historyCleanupInterval);
+    setInterval(
+      () => this.cleanOldHistories(),
+      LUMA_CONFIG.TECHNICAL.historyCleanupInterval
+    );
   }
 
   static isTriggered(text) {
     if (!text) return false;
-    return LUMA_CONFIG.TRIGGERS.some(regex => regex.test(text.toLowerCase().trim()));
+    return LUMA_CONFIG.TRIGGERS.some((regex) =>
+      regex.test(text.toLowerCase().trim())
+    );
   }
 
   isReplyToLuma(message) {
@@ -62,7 +67,7 @@ export class LumaHandler {
 
     const isReply = quotedMsgId === lastBotMsgId;
     if (isReply) {
-      Logger.info(`✅ Detectada resposta à Luma de ${jid.split('@')[0]}`);
+      Logger.info(`✅ Detectada resposta à Luma de ${jid.split("@")[0]}`);
     }
 
     return isReply;
@@ -71,14 +76,16 @@ export class LumaHandler {
   saveLastBotMessage(jid, messageId) {
     if (!messageId) return;
     this.lastBotMessages.set(jid, messageId);
-    Logger.info(`💾 Salvo ID da mensagem da Luma para ${jid.split('@')[0]}: ${messageId}`);
+    Logger.info(
+      `💾 Salvo ID da mensagem da Luma para ${jid.split("@")[0]}: ${messageId}`
+    );
   }
 
   addToHistory(userJid, userMessage, botResponse) {
     if (!this.conversationHistory.has(userJid)) {
       this.conversationHistory.set(userJid, {
         messages: [],
-        lastUpdate: Date.now()
+        lastUpdate: Date.now(),
       });
     }
 
@@ -88,13 +95,16 @@ export class LumaHandler {
     data.lastUpdate = Date.now();
 
     if (data.messages.length > LUMA_CONFIG.TECHNICAL.maxHistory) {
-      data.messages.splice(0, data.messages.length - LUMA_CONFIG.TECHNICAL.maxHistory);
+      data.messages.splice(
+        0,
+        data.messages.length - LUMA_CONFIG.TECHNICAL.maxHistory
+      );
     }
   }
 
   getHistory(userJid) {
     const data = this.conversationHistory.get(userJid);
-    return data?.messages.join('\n') || "Nenhuma conversa anterior.";
+    return data?.messages.join("\n") || "Nenhuma conversa anterior.";
   }
 
   clearHistory(userJid) {
@@ -120,7 +130,7 @@ export class LumaHandler {
 
   extractUserMessage(text) {
     return text
-      .replace(/^(ei\s+|oi\s+|e\s+aí\s+|fala\s+)?luma[,!?]?\s*/i, '')
+      .replace(/^(ei\s+|oi\s+|e\s+aí\s+|fala\s+)?luma[,!?]?\s*/i, "")
       .trim();
   }
 
@@ -139,12 +149,13 @@ export class LumaHandler {
       }
 
       // Verifica se é resposta a uma mensagem com imagem
-      const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      const quotedMsg =
+        message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       if (quotedMsg?.imageMessage) {
         Logger.info("🖼️ Imagem detectada na mensagem citada");
         const quotedMessage = {
           message: { imageMessage: quotedMsg.imageMessage },
-          key: message.key
+          key: message.key,
         };
         return await this.convertImageToBase64(quotedMessage, sock);
       }
@@ -154,7 +165,7 @@ export class LumaHandler {
         Logger.info("🎭 Figurinha detectada na mensagem citada");
         const quotedMessage = {
           message: { stickerMessage: quotedMsg.stickerMessage },
-          key: message.key
+          key: message.key,
         };
         return await this.convertImageToBase64(quotedMessage, sock);
       }
@@ -168,27 +179,30 @@ export class LumaHandler {
 
   async convertImageToBase64(message, sock) {
     try {
-
       const buffer = await MediaProcessor.downloadMedia(message, sock);
 
       if (!buffer) return null;
 
-      const base64Image = buffer.toString('base64');
+      const base64Image = buffer.toString("base64");
 
-      let mimeType = 'image/jpeg';
+      let mimeType = "image/jpeg";
       if (message.message?.imageMessage?.mimetype) {
         mimeType = message.message.imageMessage.mimetype;
       } else if (message.message?.stickerMessage) {
-        mimeType = 'image/webp';
+        mimeType = "image/webp";
       }
 
-      Logger.info(`✅ Imagem convertida para base64 (${(base64Image.length / 1024).toFixed(1)}KB)`);
+      Logger.info(
+        `✅ Imagem convertida para base64 (${(
+          base64Image.length / 1024
+        ).toFixed(1)}KB)`
+      );
 
       return {
         inlineData: {
           data: base64Image,
-          mimeType: mimeType
-        }
+          mimeType: mimeType,
+        },
       };
     } catch (error) {
       Logger.error("❌ Erro ao converter imagem:", error);
@@ -198,7 +212,7 @@ export class LumaHandler {
 
   async generateResponse(userMessage, userJid, message = null, sock = null) {
     if (!this.isConfigured) {
-      return this.getErrorResponse('API_KEY_MISSING');
+      return this.getErrorResponse("API_KEY_MISSING");
     }
 
     try {
@@ -217,12 +231,11 @@ export class LumaHandler {
       const cleanedResponse = this.cleanResponse(response);
       this.addToHistory(userJid, userMessage, cleanedResponse);
 
-      Logger.info(`💬 Luma respondeu para ${userJid.split('@')[0]}`);
+      Logger.info(`💬 Luma respondeu para ${userJid.split("@")[0]}`);
       return cleanedResponse;
-
     } catch (error) {
       Logger.error("❌ Erro na Luma:", error.message);
-      return this.getErrorResponse('GENERAL', error);
+      return this.getErrorResponse("GENERAL", error);
     }
   }
 
@@ -235,7 +248,7 @@ export class LumaHandler {
         maxOutputTokens: 500,
         topP: 0.95,
         topK: 50,
-      }
+      },
     });
 
     return response.text;
@@ -253,15 +266,15 @@ export class LumaHandler {
     }
 
     const prompt = promptTemplate
-      .replace('{{HISTORY_PLACEHOLDER}}', hasHistory ? `CONVERSA ANTERIOR:\n${history}\n` : '')
-      .replace('{{USER_MESSAGE}}', userMessage);
+      .replace(
+        "{{HISTORY_PLACEHOLDER}}",
+        hasHistory ? `CONVERSA ANTERIOR:\n${history}\n` : ""
+      )
+      .replace("{{USER_MESSAGE}}", userMessage);
 
     // Se há imagem, retorna array com texto e imagem
     if (imageData) {
-      return [
-        { text: prompt },
-        imageData
-      ];
+      return [{ text: prompt }, imageData];
     }
 
     // Sem imagem, retorna só o texto
@@ -271,14 +284,16 @@ export class LumaHandler {
   cleanResponse(text) {
     let cleaned = text
       .trim()
-      .replace(/\*\*/g, '')
-      .replace(/\*/g, '')
-      .replace(/`/g, '')
-      .replace(/^Luma:\s*/i, '');
+      .replace(/\*\*/g, "")
+      .replace(/\*/g, "")
+      .replace(/`/g, "")
+      .replace(/^Luma:\s*/i, "");
 
     // Limita o tamanho
     if (cleaned.length > LUMA_CONFIG.TECHNICAL.maxResponseLength) {
-      cleaned = cleaned.substring(0, LUMA_CONFIG.TECHNICAL.maxResponseLength - 3) + "...";
+      cleaned =
+        cleaned.substring(0, LUMA_CONFIG.TECHNICAL.maxResponseLength - 3) +
+        "...";
     }
 
     return cleaned;
@@ -288,16 +303,16 @@ export class LumaHandler {
     const errorConfig = LUMA_CONFIG.ERROR_RESPONSES;
 
     switch (type) {
-      case 'API_KEY_MISSING':
+      case "API_KEY_MISSING":
         return errorConfig.API_KEY_MISSING;
 
-      case 'API_KEY_INVALID':
+      case "API_KEY_INVALID":
         return errorConfig.API_KEY_INVALID;
 
-      case 'QUOTA_EXCEEDED':
+      case "QUOTA_EXCEEDED":
         return errorConfig.QUOTA_EXCEEDED;
 
-      case 'MODEL_NOT_FOUND':
+      case "MODEL_NOT_FOUND":
         return errorConfig.MODEL_NOT_FOUND;
 
       default:
@@ -309,11 +324,13 @@ export class LumaHandler {
   getStats() {
     return {
       totalConversations: this.conversationHistory.size,
-      conversations: Array.from(this.conversationHistory.entries()).map(([jid, data]) => ({
-        jid: jid.split('@')[0],
-        messageCount: data.messages.length,
-        lastUpdate: new Date(data.lastUpdate).toLocaleString('pt-BR')
-      }))
+      conversations: Array.from(this.conversationHistory.entries()).map(
+        ([jid, data]) => ({
+          jid: jid.split("@")[0],
+          messageCount: data.messages.length,
+          lastUpdate: new Date(data.lastUpdate).toLocaleString("pt-BR"),
+        })
+      ),
     };
   }
 

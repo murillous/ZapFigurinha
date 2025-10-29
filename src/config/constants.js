@@ -1,6 +1,6 @@
 export const CONFIG = {
   TEMP_DIR: "./temp",
-  AUTH_DIR: "./auth_info", 
+  AUTH_DIR: "./auth_info",
   BLACKLIST_FILE: "./blacklist.json",
   MAX_RECONNECT_ATTEMPTS: 3,
   RECONNECT_DELAY: 5000,
@@ -20,22 +20,22 @@ export const CONFIG = {
 
 export const COMMANDS = {
   STICKER: "!sticker",
-  IMAGE: "!image", 
+  IMAGE: "!image",
   GIF: "!gif",
   EVERYONE: "@everyone",
   BLACKLIST_ADD: "!blacklist add",
-  BLACKLIST_REMOVE: "!blacklist remove", 
+  BLACKLIST_REMOVE: "!blacklist remove",
   BLACKLIST_LIST: "!blacklist list",
   BLACKLIST_CLEAR: "!blacklist clear",
   LUMA_STATS: "!luma stats",
   LUMA_CLEAR: "!luma clear",
-  MY_NUMBER: "!meunumero"
+  MY_NUMBER: "!meunumero",
 };
 
 export const MESSAGES = {
   INITIALIZING: "🤖 WhatsApp Sticker Bot - Conversor Completo",
   STICKER_COMMAND: "🔄 !sticker - Converte imagem/vídeo para sticker",
-  IMAGE_COMMAND: "🖼️ !image - Converte sticker para imagem", 
+  IMAGE_COMMAND: "🖼️ !image - Converte sticker para imagem",
   GIF_COMMAND: "🎬 !gif - Converte sticker animado para GIF",
   WAITING_QR: "📱 Aguarde o QR Code...",
   CONNECTING: "🔄 Iniciando conexão com WhatsApp...",
@@ -45,7 +45,7 @@ export const MESSAGES = {
   SEND_MEDIA_STICKER: "ℹ️ Envie uma mídia com !sticker",
   REPLY_MEDIA_STICKER: "ℹ️ Responda a uma imagem/vídeo com !sticker",
   SEND_STICKER_IMAGE: "ℹ️ Envie um sticker com !image",
-  REPLY_STICKER_IMAGE: "ℹ️ Responda a um sticker com !image", 
+  REPLY_STICKER_IMAGE: "ℹ️ Responda a um sticker com !image",
   SEND_STICKER_GIF: "ℹ️ Envie um sticker animado com !gif",
   REPLY_STICKER_GIF: "ℹ️ Responda a um sticker animado com !gif",
   STATIC_STICKER: "ℹ️ Este é um sticker estático. Use !image para converter",
@@ -54,6 +54,7 @@ export const MESSAGES = {
   CONVERTED_GIF: "🎬 Convertido!",
   DOWNLOAD_ERROR: "❌ Erro ao baixar",
   CONVERSION_ERROR: "❌ Erro na conversão",
-  UNSUPPORTED_FORMAT: "❌ Este sticker usa um formato que não consigo converter. Desculpe!",
+  UNSUPPORTED_FORMAT:
+    "❌ Este sticker usa um formato que não consigo converter. Desculpe!",
   GENERAL_ERROR: "❌ Erro",
 };

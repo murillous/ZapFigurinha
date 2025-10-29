@@ -3,7 +3,7 @@ import { Logger } from "./src/utils/Logger.js";
 import { CONFIG, MESSAGES } from "./src/config/constants.js";
 import { ConnectionManager } from "./src/managers/ConnectionManager.js";
 import { BlacklistManager } from "./src/managers/BlacklistManager.js";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config();
 
 class BotInitializer {

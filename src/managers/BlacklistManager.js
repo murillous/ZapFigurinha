@@ -8,9 +8,11 @@ export class BlacklistManager {
   static initialize() {
     try {
       if (fs.existsSync(CONFIG.BLACKLIST_FILE)) {
-        const data = JSON.parse(fs.readFileSync(CONFIG.BLACKLIST_FILE, 'utf8'));
+        const data = JSON.parse(fs.readFileSync(CONFIG.BLACKLIST_FILE, "utf8"));
         this.blacklist = new Set(data.groups || []);
-        Logger.info(`📋 Blacklist carregada: ${this.blacklist.size} grupos bloqueados`);
+        Logger.info(
+          `📋 Blacklist carregada: ${this.blacklist.size} grupos bloqueados`
+        );
       } else {
         this.save();
         Logger.info("📋 Arquivo de blacklist criado");
@@ -25,7 +27,7 @@ export class BlacklistManager {
     try {
       const data = {
         groups: Array.from(this.blacklist),
-        lastUpdate: new Date().toISOString()
+        lastUpdate: new Date().toISOString(),
       };
       fs.writeFileSync(CONFIG.BLACKLIST_FILE, JSON.stringify(data, null, 2));
     } catch (error) {
@@ -38,8 +40,8 @@ export class BlacklistManager {
   }
 
   static add(jid) {
-    if (!jid.endsWith('@g.us')) {
-      return false; 
+    if (!jid.endsWith("@g.us")) {
+      return false;
     }
     this.blacklist.add(jid);
     this.save();

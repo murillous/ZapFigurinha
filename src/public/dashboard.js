@@ -4,12 +4,12 @@ class Dashboard {
    * Inicializa o Dashboard
    */
   constructor() {
-    this.statusIndicatorElement = document.getElementById('statusIndicator');
-    this.statusTextElement = document.getElementById('statusText');
-    this.botStatusElement = document.getElementById('botStatus');
-    this.currentTimeElement = document.getElementById('currentTime');
-    this.logsContainerElement = document.getElementById('logsContainer');
-    this.botToggleElement = document.getElementById('botToggle');
+    this.statusIndicatorElement = document.getElementById("statusIndicator");
+    this.statusTextElement = document.getElementById("statusText");
+    this.botStatusElement = document.getElementById("botStatus");
+    this.currentTimeElement = document.getElementById("currentTime");
+    this.logsContainerElement = document.getElementById("logsContainer");
+    this.botToggleElement = document.getElementById("botToggle");
 
     this.isOnline = true;
     this.logs = [];
@@ -24,13 +24,13 @@ class Dashboard {
    */
   initializeEventListeners() {
     // Toggle do bot
-    this.botToggleElement.addEventListener('change', (event) => {
+    this.botToggleElement.addEventListener("change", (event) => {
       this.handleBotToggle(event);
     });
 
     // Atalho de teclado: Ctrl+C para limpar logs
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'c' && event.ctrlKey) {
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "c" && event.ctrlKey) {
         event.preventDefault();
         this.clearLogs();
       }
@@ -53,8 +53,7 @@ class Dashboard {
 
     :) luisao esteve aqui
   */
-  
-  
+
   /**
    * Inicializa o dashboard com dados padrão
    */
@@ -69,11 +68,11 @@ class Dashboard {
    */
   updateClock() {
     const now = new Date();
-    const timeString = now.toLocaleTimeString('en-US', {
+    const timeString = now.toLocaleTimeString("en-US", {
       hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
 
     this.currentTimeElement.textContent = timeString;
@@ -84,13 +83,13 @@ class Dashboard {
    */
   loadBotStatus() {
     try {
-      this.botStatusElement.textContent = 'RUNNING';
-      this.statusIndicatorElement.className = 'status-indicator active';
-      this.statusTextElement.textContent = '● ONLINE';
+      this.botStatusElement.textContent = "RUNNING";
+      this.statusIndicatorElement.className = "status-indicator active";
+      this.statusTextElement.textContent = "● ONLINE";
       this.isOnline = true;
     } catch (error) {
-      console.error('Erro ao carregar status do bot:', error);
-      this.addLog('Erro ao carregar status', 'error');
+      console.error("Erro ao carregar status do bot:", error);
+      this.addLog("Erro ao carregar status", "error");
     }
   }
 
@@ -102,15 +101,15 @@ class Dashboard {
     this.isOnline = event.target.checked;
 
     if (this.isOnline) {
-      this.statusTextElement.textContent = '● ONLINE';
-      this.statusTextElement.className = 'status-text online';
-      this.statusIndicatorElement.className = 'status-indicator active';
-      this.addLog('Bot conectado', 'success');
+      this.statusTextElement.textContent = "● ONLINE";
+      this.statusTextElement.className = "status-text online";
+      this.statusIndicatorElement.className = "status-indicator active";
+      this.addLog("Bot conectado", "success");
     } else {
-      this.statusTextElement.textContent = '● OFFLINE';
-      this.statusTextElement.className = 'status-text offline';
-      this.statusIndicatorElement.className = 'status-indicator inactive';
-      this.addLog('Bot desconectado', 'warning');
+      this.statusTextElement.textContent = "● OFFLINE";
+      this.statusTextElement.className = "status-text offline";
+      this.statusIndicatorElement.className = "status-indicator inactive";
+      this.addLog("Bot desconectado", "warning");
     }
   }
 
@@ -119,7 +118,7 @@ class Dashboard {
    * @param {string} message - Mensagem do log
    * @param {string} type - Tipo do log (info, success, warning, error)
    */
-  addLog(message, type = 'info') {
+  addLog(message, type = "info") {
     const timestamp = new Date();
 
     const logEntry = {
@@ -143,13 +142,14 @@ class Dashboard {
    */
   renderLogs() {
     if (this.logs.length === 0) {
-      this.logsContainerElement.innerHTML = '<div class="empty-state">» Nenhum log disponível</div>';
+      this.logsContainerElement.innerHTML =
+        '<div class="empty-state">» Nenhum log disponível</div>';
       return;
     }
 
     const logsHTML = this.logs
       .map((log) => this.createLogEntryHTML(log))
-      .join('');
+      .join("");
 
     this.logsContainerElement.innerHTML = logsHTML;
     this.logsContainerElement.scrollTop = 0;
@@ -161,7 +161,7 @@ class Dashboard {
    * @returns {string} HTML da entrada
    */
   createLogEntryHTML(log) {
-    const timeString = log.timestamp.toLocaleTimeString('en-US', {
+    const timeString = log.timestamp.toLocaleTimeString("en-US", {
       hour12: false,
     });
 
@@ -184,11 +184,11 @@ class Dashboard {
    */
   escapeHTML(text) {
     const htmlEscapeMap = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;',
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
     };
 
     return text.replace(/[&<>"']/g, (char) => htmlEscapeMap[char]);
@@ -200,7 +200,7 @@ class Dashboard {
   clearLogs() {
     this.logs = [];
     this.renderLogs();
-    this.addLog('Logs limpos', 'info');
+    this.addLog("Logs limpos", "info");
   }
 
   /**
@@ -209,20 +209,20 @@ class Dashboard {
   displayWelcomeMessages() {
     const welcomeMessages = [
       {
-        text: 'WhatsApp Sticker Bot - Dashboard Inicializado',
-        type: 'success',
+        text: "WhatsApp Sticker Bot - Dashboard Inicializado",
+        type: "success",
       },
       {
-        text: '!sticker - Converte imagem/vídeo para sticker',
-        type: 'info',
+        text: "!sticker - Converte imagem/vídeo para sticker",
+        type: "info",
       },
       {
-        text: '!image - Converte sticker para imagem',
-        type: 'info',
+        text: "!image - Converte sticker para imagem",
+        type: "info",
       },
       {
-        text: '!gif - Converte sticker animado para GIF',
-        type: 'info',
+        text: "!gif - Converte sticker animado para GIF",
+        type: "info",
       },
     ];
 
@@ -242,6 +242,6 @@ class Dashboard {
 /**
  * Inicializa o Dashboard quando o DOM estiver pronto
  */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   window.dashboard = new Dashboard();
 });
