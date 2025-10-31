@@ -130,17 +130,13 @@ export class MessageHandler {
       const stats = this.lumaHandler.getStats();
       const statsText =
         `📊 *Estatísticas da Luma*\n\n` +
-        `💬 Total de contextos: ${stats.totalContexts}\n` +
-        `👤 Conversas privadas: ${stats.privateChats}\n` +
-        `👥 Conversas em grupos: ${stats.groupChats}\n\n` +
-        `📝 *Últimas conversas:*\n` +
-        (stats.contexts.length > 0
-          ? stats.contexts
+        `💬 Conversas ativas: ${stats.totalConversations}\n\n` +
+        (stats.conversations.length > 0
+          ? stats.conversations
               .slice(0, 10)
               .map(
                 (c) =>
-                  `\n${c.isGroup ? "👥" : "👤"} ${c.userName}\n` +
-                  `   ${c.messageCount} msgs | ${c.lastUpdate}`
+                  `• ${c.jid}: ${c.messageCount} msgs\n  Última: ${c.lastUpdate}`
               )
               .join("\n")
           : "Nenhuma conversa no momento");
@@ -150,16 +146,11 @@ export class MessageHandler {
     }
 
     if (lower === COMMANDS.LUMA_CLEAR) {
-      // Obtém o userJid correto
-      const userJid = message.key.fromMe
-        ? sock.user.id
-        : message.key.participant || message.key.remoteJid;
-
-      this.lumaHandler.clearHistory(userJid, jid);
+      this.lumaHandler.clearHistory(jid);
       await this.sendMessage(
         sock,
         jid,
-        "🗑️ Histórico da Luma limpo neste contexto!"
+        "🗑️ Histórico da Luma limpo nesta conversa!"
       );
       return true;
     }
@@ -280,204 +271,10 @@ export class MessageHandler {
     }
   }
 
-  /**
-   * Extrai usuários mencionados na mensagem
-   * Apenas adiciona menções quando consegue identificar o nome
-   */
-  static async getMentionedUsers(message, sock) {
-    try {
-      const mentions = [];
-
-      // Verifica se há menções no contextInfo
-      const contextInfo = message.message?.extendedTextMessage?.contextInfo;
-      if (!contextInfo?.mentionedJid || contextInfo.mentionedJid.length === 0) {
-        return mentions;
-      }
-
-      Logger.info(`📌 ${contextInfo.mentionedJid.length} menções detectadas`);
-
-      const chatJid = message.key.remoteJid;
-      const isGroup = chatJid.endsWith("@g.us");
-
-      // Se for grupo, pega metadados uma vez só
-      let groupMetadata = null;
-      if (isGroup) {
-        try {
-          groupMetadata = await sock.groupMetadata(chatJid);
-          Logger.info(
-            `📋 Metadados do grupo carregados (${groupMetadata.participants.length} participantes)`
-          );
-        } catch (error) {
-          Logger.error(
-            `❌ Erro ao carregar metadados do grupo: ${error.message}`
-          );
-        }
-      }
-
-      // Para cada JID mencionado, tenta pegar o nome
-      for (const mentionedJid of contextInfo.mentionedJid) {
-        try {
-          let name = null;
-
-          // Tenta pegar do pushName primeiro (mais confiável)
-          if (isGroup && groupMetadata) {
-            const participant = groupMetadata.participants.find(
-              (p) => p.id === mentionedJid
-            );
-
-            if (participant) {
-              // Prioriza notify (nome que aparece no grupo)
-              name = participant.notify || null;
-
-              if (name) {
-                Logger.info(
-                  `✅ Nome encontrado: ${name} (${mentionedJid.split("@")[0]})`
-                );
-              } else {
-                Logger.warn(
-                  `⚠️ Participante sem nome definido (${
-                    mentionedJid.split("@")[0]
-                  })`
-                );
-              }
-            } else {
-              Logger.warn(
-                `⚠️ Participante não encontrado nos metadados (${
-                  mentionedJid.split("@")[0]
-                })`
-              );
-            }
-          }
-
-          // Só adiciona à lista se encontrou um nome válido
-          if (name && name.trim()) {
-            mentions.push({
-              jid: mentionedJid,
-              name: name.trim(),
-              number: mentionedJid.split("@")[0].replace(/\D/g, ""),
-            });
-
-            Logger.info(
-              `👤 Menção adicionada: ${name} (${mentionedJid.split("@")[0]})`
-            );
-          } else {
-            Logger.info(
-              `⏭️ Menção ignorada (sem nome): ${mentionedJid.split("@")[0]}`
-            );
-          }
-        } catch (error) {
-          Logger.warn(
-            `⚠️ Erro ao processar menção ${mentionedJid}: ${error.message}`
-          );
-        }
-      }
-
-      if (mentions.length > 0) {
-        Logger.info(
-          `📌 ${mentions.length} menção(ões) com nome identificado(s)`
-        );
-      } else {
-        Logger.info(`📌 Nenhuma menção com nome foi identificada`);
-      }
-
-      return mentions;
-    } catch (error) {
-      Logger.error("❌ Erro ao extrair menções:", error);
-      return [];
-    }
-  }
-
-  /**
-   * Obtém o nome do usuário do WhatsApp (apenas primeiro nome)
-   */
-  static async getUserName(message, sock) {
-    try {
-      // Se for mensagem do bot
-      if (message.key.fromMe) {
-        const botName = sock.user?.name || sock.user?.verifiedName || "Bot";
-        return botName.trim().split(/\s+/)[0]; // Apenas primeiro nome
-      }
-
-      const chatJid = message.key.remoteJid;
-      const isGroup = chatJid.endsWith("@g.us");
-
-      // Em grupos, tenta pegar do pushName ou metadados do grupo
-      if (isGroup) {
-        const participantJid = message.key.participant;
-
-        // Primeiro tenta o pushName da mensagem
-        const pushName = message.pushName;
-        if (pushName && pushName.trim()) {
-          Logger.info(
-            `👤 Nome via pushName: ${pushName.trim().split(/\s+/)[0]}`
-          );
-          return pushName.trim().split(/\s+/)[0];
-        }
-
-        // Se não tem pushName, tenta pegar dos metadados do grupo
-        if (participantJid) {
-          try {
-            const groupMetadata = await sock.groupMetadata(chatJid);
-            const participant = groupMetadata.participants.find(
-              (p) => p.id === participantJid
-            );
-
-            if (participant?.notify) {
-              Logger.info(
-                `👤 Nome via grupo: ${
-                  participant.notify.trim().split(/\s+/)[0]
-                }`
-              );
-              return participant.notify.trim().split(/\s+/)[0];
-            }
-          } catch (e) {
-            Logger.warn(`⚠️ Erro ao buscar nome do grupo: ${e.message}`);
-          }
-        }
-      } else {
-        // Em chat privado, usa pushName
-        const pushName = message.pushName;
-        if (pushName && pushName.trim()) {
-          Logger.info(
-            `👤 Nome via pushName (privado): ${pushName.trim().split(/\s+/)[0]}`
-          );
-          return pushName.trim().split(/\s+/)[0];
-        }
-      }
-
-      // Fallback: usa o número
-      const number = await this.getSenderNumber(message, sock);
-      Logger.warn(`⚠️ Nome não encontrado, usando número: ${number}`);
-      return number || "Usuário";
-    } catch (error) {
-      Logger.error("❌ Erro ao obter nome do usuário:", error);
-      return "Usuário";
-    }
-  }
-
   static async handleLumaCommand(message, sock, isReply = false) {
     try {
-      const chatJid = message.key.remoteJid;
+      const jid = message.key.remoteJid;
       const text = this.extractText(message);
-
-      // Obtém o JID do usuário
-      const userJid = message.key.fromMe
-        ? sock.user.id
-        : message.key.participant || message.key.remoteJid;
-
-      // Obtém o nome do usuário (primeiro nome apenas)
-      const userName = await this.getUserName(message, sock);
-      Logger.info(`👤 Nome detectado: ${userName} (${userJid.split("@")[0]})`);
-
-      // Extrai usuários mencionados
-      const mentionedUsers = await this.getMentionedUsers(message, sock);
-      if (mentionedUsers.length > 0) {
-        Logger.info(
-          `📌 ${mentionedUsers.length} pessoa(s) mencionada(s): ${mentionedUsers
-            .map((m) => m.name)
-            .join(", ")}`
-        );
-      }
 
       let userMessage = isReply
         ? text
@@ -492,7 +289,7 @@ export class MessageHandler {
 
       if (!userMessage && !hasVisualContent) {
         const response = await sock.sendMessage(
-          chatJid,
+          jid,
           {
             text: this.lumaHandler.getRandomBoredResponse(),
           },
@@ -500,7 +297,7 @@ export class MessageHandler {
         );
 
         if (response?.key?.id) {
-          this.lumaHandler.saveLastBotMessage(chatJid, response.key.id);
+          this.lumaHandler.saveLastBotMessage(jid, response.key.id);
         }
         return;
       }
@@ -509,25 +306,18 @@ export class MessageHandler {
         userMessage = "O que você acha dessa imagem?";
       }
 
-      // Finge estar digitando
-      await sock.sendPresenceUpdate("composing", chatJid);
+      await sock.sendPresenceUpdate("composing", jid);
       await this.randomDelay();
-
-      // Para de "digitar" antes de enviar
-      await sock.sendPresenceUpdate("paused", chatJid);
 
       const responseText = await this.lumaHandler.generateResponse(
         userMessage,
-        userJid,
-        chatJid,
-        userName,
+        jid,
         message,
-        sock,
-        mentionedUsers
+        sock
       );
 
       const sentMessage = await sock.sendMessage(
-        chatJid,
+        jid,
         {
           text: responseText,
         },
@@ -535,7 +325,7 @@ export class MessageHandler {
       );
 
       if (sentMessage?.key?.id) {
-        this.lumaHandler.saveLastBotMessage(chatJid, sentMessage.key.id);
+        this.lumaHandler.saveLastBotMessage(jid, sentMessage.key.id);
       }
     } catch (error) {
       Logger.error("❌ Erro no comando da Luma:", error);

@@ -31,11 +31,8 @@ export class LumaHandler {
   initializeAI() {
     try {
       this.ai = new GoogleGenAI({ apiKey: this.apiKey });
-      // Estrutura: Map<contextId, {messages, lastUpdate, userName, isGroup}>
       this.conversationHistory = new Map();
       this.lastBotMessages = new Map();
-      // Cache de nomes: Map<userJid, userName>
-      this.userNames = new Map();
 
       Logger.info("✅ Luma inicializada com sucesso!");
     } catch (error) {
@@ -84,52 +81,16 @@ export class LumaHandler {
     );
   }
 
-  getContextId(userJid, chatJid) {
-    if (chatJid.endsWith("@g.us")) {
-      return `${userJid}:${chatJid}`;
-    }
-
-    return userJid;
-  }
-
-  getFirstName(fullName) {
-    if (!fullName || fullName === "Usuário") return fullName;
-    return fullName.trim().split(/\s+/)[0];
-  }
-
-  saveUserName(userJid, userName) {
-    if (userName && userName !== "Usuário") {
-      const firstName = this.getFirstName(userName);
-      this.userNames.set(userJid, firstName);
-      Logger.info(`👤 Nome salvo: ${firstName} (${userJid.split("@")[0]})`);
-    }
-  }
-
-  getUserName(userJid) {
-    return this.userNames.get(userJid) || "Usuário";
-  }
-
-  addToHistory(userJid, chatJid, userName, userMessage, botResponse) {
-    const contextId = this.getContextId(userJid, chatJid);
-
-    if (!this.conversationHistory.has(contextId)) {
-      this.conversationHistory.set(contextId, {
+  addToHistory(userJid, userMessage, botResponse) {
+    if (!this.conversationHistory.has(userJid)) {
+      this.conversationHistory.set(userJid, {
         messages: [],
         lastUpdate: Date.now(),
-        userName: userName,
-        userJid: userJid,
-        chatJid: chatJid,
-        isGroup: chatJid.endsWith("@g.us"),
       });
     }
 
-    const data = this.conversationHistory.get(contextId);
-
-    if (userName && userName !== "Usuário") {
-      data.userName = userName;
-    }
-
-    data.messages.push(`${data.userName}: ${userMessage}`);
+    const data = this.conversationHistory.get(userJid);
+    data.messages.push(`Usuário: ${userMessage}`);
     data.messages.push(`Luma: ${botResponse}`);
     data.lastUpdate = Date.now();
 
@@ -139,38 +100,25 @@ export class LumaHandler {
         data.messages.length - LUMA_CONFIG.TECHNICAL.maxHistory
       );
     }
-
-    Logger.info(
-      `💾 Histórico atualizado - Contexto: ${contextId.substring(0, 30)}... (${
-        data.messages.length
-      } msgs)`
-    );
   }
 
-  getHistory(userJid, chatJid) {
-    const contextId = this.getContextId(userJid, chatJid);
-    const data = this.conversationHistory.get(contextId);
-
-    if (!data || data.messages.length === 0) {
-      return "Nenhuma conversa anterior.";
-    }
-
-    return data.messages.join("\n");
+  getHistory(userJid) {
+    const data = this.conversationHistory.get(userJid);
+    return data?.messages.join("\n") || "Nenhuma conversa anterior.";
   }
 
-  clearHistory(userJid, chatJid) {
-    const contextId = this.getContextId(userJid, chatJid);
-    this.conversationHistory.delete(contextId);
-    Logger.info(`🗑️ Histórico da Luma limpo para contexto: ${contextId}`);
+  clearHistory(userJid) {
+    this.conversationHistory.delete(userJid);
+    Logger.info(`🗑️ Histórico da Luma limpo para ${userJid}`);
   }
 
   cleanOldHistories() {
     const now = Date.now();
     let cleaned = 0;
 
-    for (const [contextId, data] of this.conversationHistory.entries()) {
+    for (const [jid, data] of this.conversationHistory.entries()) {
       if (now - data.lastUpdate > LUMA_CONFIG.TECHNICAL.maxHistoryAge) {
-        this.conversationHistory.delete(contextId);
+        this.conversationHistory.delete(jid);
         cleaned++;
       }
     }
@@ -188,16 +136,19 @@ export class LumaHandler {
 
   async extractImageFromMessage(message, sock) {
     try {
+      // Verifica se a mensagem tem imagem diretamente
       if (message.message?.imageMessage) {
         Logger.info("🖼️ Imagem detectada na mensagem atual");
         return await this.convertImageToBase64(message, sock);
       }
 
+      // Verifica se a mensagem tem sticker
       if (message.message?.stickerMessage) {
         Logger.info("🎭 Figurinha detectada na mensagem atual");
         return await this.convertImageToBase64(message, sock);
       }
 
+      // Verifica se é resposta a uma mensagem com imagem
       const quotedMsg =
         message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       if (quotedMsg?.imageMessage) {
@@ -209,6 +160,7 @@ export class LumaHandler {
         return await this.convertImageToBase64(quotedMessage, sock);
       }
 
+      // Verifica se é resposta a uma figurinha
       if (quotedMsg?.stickerMessage) {
         Logger.info("🎭 Figurinha detectada na mensagem citada");
         const quotedMessage = {
@@ -236,8 +188,6 @@ export class LumaHandler {
       let mimeType = "image/jpeg";
       if (message.message?.imageMessage?.mimetype) {
         mimeType = message.message.imageMessage.mimetype;
-      } else if (message.message?.stickerMessage?.mimetype) {
-        mimeType = message.message.stickerMessage.mimetype;
       } else if (message.message?.stickerMessage) {
         mimeType = "image/webp";
       }
@@ -245,7 +195,7 @@ export class LumaHandler {
       Logger.info(
         `✅ Imagem convertida para base64 (${(
           base64Image.length / 1024
-        ).toFixed(1)}KB, ${mimeType})`
+        ).toFixed(1)}KB)`
       );
 
       return {
@@ -260,26 +210,13 @@ export class LumaHandler {
     }
   }
 
-  async generateResponse(
-    userMessage,
-    userJid,
-    chatJid,
-    userName = "Usuário",
-    message = null,
-    sock = null,
-    mentionedUsers = []
-  ) {
+  async generateResponse(userMessage, userJid, message = null, sock = null) {
     if (!this.isConfigured) {
       return this.getErrorResponse("API_KEY_MISSING");
     }
 
     try {
-      this.saveUserName(userJid, userName);
-
-      for (const mention of mentionedUsers) {
-        this.saveUserName(mention.jid, mention.name);
-      }
-
+      // Tenta extrair imagem se message e sock forem fornecidos
       let imageData = null;
       if (message && sock) {
         imageData = await this.extractImageFromMessage(message, sock);
@@ -288,28 +225,13 @@ export class LumaHandler {
         }
       }
 
-      const prompt = this.buildPrompt(
-        userMessage,
-        userJid,
-        chatJid,
-        userName,
-        imageData,
-        mentionedUsers
-      );
+      const prompt = this.buildPrompt(userMessage, userJid, imageData);
       const response = await this.sendToAI(prompt);
 
       const cleanedResponse = this.cleanResponse(response);
-      this.addToHistory(
-        userJid,
-        chatJid,
-        userName,
-        userMessage,
-        cleanedResponse
-      );
+      this.addToHistory(userJid, userMessage, cleanedResponse);
 
-      Logger.info(
-        `💬 Luma respondeu para ${userName} (${userJid.split("@")[0]})`
-      );
+      Logger.info(`💬 Luma respondeu para ${userJid.split("@")[0]}`);
       return cleanedResponse;
     } catch (error) {
       Logger.error("❌ Erro na Luma:", error.message);
@@ -332,47 +254,30 @@ export class LumaHandler {
     return response.text;
   }
 
-  buildPrompt(
-    userMessage,
-    userJid,
-    chatJid,
-    userName,
-    imageData = null,
-    mentionedUsers = []
-  ) {
-    const history = this.getHistory(userJid, chatJid);
+  buildPrompt(userMessage, userJid, imageData = null) {
+    const history = this.getHistory(userJid);
     const hasHistory = history !== "Nenhuma conversa anterior.";
-    const isGroup = chatJid.endsWith("@g.us");
 
+    // Se há imagem, adiciona instruções de visão
     let promptTemplate = LUMA_CONFIG.PROMPT_TEMPLATE;
+
     if (imageData) {
       promptTemplate = LUMA_CONFIG.VISION_PROMPT_TEMPLATE;
     }
-
-    let mentionInfo = "";
-    if (mentionedUsers.length > 0) {
-      const mentionNames = mentionedUsers
-        .map((m) => this.getFirstName(m.name))
-        .join(", ");
-      mentionInfo = `\n(${userName} mencionou: ${mentionNames})`;
-    }
-
-    const contextInfo = isGroup
-      ? `\n(Contexto: Conversa em GRUPO. Você está falando com ${userName})${mentionInfo}`
-      : `\n(Contexto: Conversa PRIVADA com ${userName})${mentionInfo}`;
 
     const prompt = promptTemplate
       .replace(
         "{{HISTORY_PLACEHOLDER}}",
         hasHistory ? `CONVERSA ANTERIOR:\n${history}\n` : ""
       )
-      .replace("{{USER_MESSAGE}}", `${userName}: ${userMessage}${contextInfo}`)
-      .replace(/\{\{NAME\}\}/g, userName);
+      .replace("{{USER_MESSAGE}}", userMessage);
 
+    // Se há imagem, retorna array com texto e imagem
     if (imageData) {
       return [{ text: prompt }, imageData];
     }
 
+    // Sem imagem, retorna só o texto
     return prompt;
   }
 
@@ -384,6 +289,7 @@ export class LumaHandler {
       .replace(/`/g, "")
       .replace(/^Luma:\s*/i, "");
 
+    // Limita o tamanho
     if (cleaned.length > LUMA_CONFIG.TECHNICAL.maxResponseLength) {
       cleaned =
         cleaned.substring(0, LUMA_CONFIG.TECHNICAL.maxResponseLength - 3) +
@@ -416,34 +322,16 @@ export class LumaHandler {
   }
 
   getStats() {
-    const stats = {
-      totalContexts: this.conversationHistory.size,
-      privateChats: 0,
-      groupChats: 0,
-      contexts: [],
+    return {
+      totalConversations: this.conversationHistory.size,
+      conversations: Array.from(this.conversationHistory.entries()).map(
+        ([jid, data]) => ({
+          jid: jid.split("@")[0],
+          messageCount: data.messages.length,
+          lastUpdate: new Date(data.lastUpdate).toLocaleString("pt-BR"),
+        })
+      ),
     };
-
-    for (const [contextId, data] of this.conversationHistory.entries()) {
-      if (data.isGroup) {
-        stats.groupChats++;
-      } else {
-        stats.privateChats++;
-      }
-
-      stats.contexts.push({
-        contextId: contextId.substring(0, 40) + "...",
-        userName: data.userName,
-        isGroup: data.isGroup,
-        messageCount: data.messages.length,
-        lastUpdate: new Date(data.lastUpdate).toLocaleString("pt-BR"),
-      });
-    }
-
-    stats.contexts.sort((a, b) => {
-      return new Date(b.lastUpdate) - new Date(a.lastUpdate);
-    });
-
-    return stats;
   }
 
   getRandomBoredResponse() {
