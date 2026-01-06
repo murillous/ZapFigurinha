@@ -10,6 +10,7 @@ export const CONFIG = {
   VIDEO_DURATION: 6,
   GIF_DURATION: 8,
   GIF_FPS: 15,
+  MAX_FILE_SIZE: 800,
   VIDEO_FPS: 15,
   MAX_FILE_SIZE: 800,
   WEBP_QUALITY: 75,
@@ -22,6 +23,8 @@ export const COMMANDS = {
   STICKER: "!sticker",
   IMAGE: "!image",
   GIF: "!gif",
+  HELP: "!help",
+  PERSONA: "!persona",
   EVERYONE: "@everyone",
   BLACKLIST_ADD: "!blacklist add",
   BLACKLIST_REMOVE: "!blacklist remove",
@@ -30,6 +33,34 @@ export const COMMANDS = {
   LUMA_STATS: "!luma stats",
   LUMA_CLEAR: "!luma clear",
   MY_NUMBER: "!meunumero",
+};
+
+export const MENUS = {
+  // Texto Informativo do !help
+  HELP_TEXT:
+    "🤖 *LISTA DE COMANDOS* 🤖\n\n" +
+    "🎨 *MÍDIA*\n" +
+    "• *!sticker* - Imagem/Vídeo/Link -> Sticker\n" +
+    "• *!gif* - Sticker Animado -> GIF\n" +
+    "• *!image* - Sticker -> Imagem\n\n" +
+    "🧠 *INTELIGÊNCIA ARTIFICIAL*\n" +
+    "• *Luma* - Fale qualquer coisa (ex: 'Luma, bom dia')\n" +
+    "• *!persona* - Abre o menu para mudar a Luma\n" +
+    "• *!luma clear* - Limpa memória da conversa\n\n" +
+    "🛠️ *UTILITÁRIOS*\n" +
+    "• *!meunumero* - Vê seu ID/Número\n" +
+    "• *!help* - Mostra essa lista",
+
+  // Menu Interativo (Só para personalidade)
+  PERSONALITY: {
+    HEADER: "🎭 *CONFIGURAÇÃO DA LUMA*\n_Responda com o código (ex: p1):_\n",
+    FOOTER: "\n_A mudança é aplicada imediatamente neste chat._",
+  },
+
+  MSGS: {
+    INVALID_OPT: "❌ Opção inválida. Tente p1, p2, etc.",
+    PERSONA_CHANGED: "✅ Personalidade alterada para: ",
+  },
 };
 
 export const MESSAGES = {
@@ -54,7 +85,6 @@ export const MESSAGES = {
   CONVERTED_GIF: "🎬 Convertido!",
   DOWNLOAD_ERROR: "❌ Erro ao baixar",
   CONVERSION_ERROR: "❌ Erro na conversão",
-  UNSUPPORTED_FORMAT:
-    "❌ Este sticker usa um formato que não consigo converter. Desculpe!",
   GENERAL_ERROR: "❌ Erro",
+  UNSUPPORTED_FORMAT: "❌ Formato não suportado ou arquivo corrompido.",
 };

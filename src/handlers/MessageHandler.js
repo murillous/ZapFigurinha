@@ -1,10 +1,11 @@
-import { COMMANDS, CONFIG, MESSAGES } from "../config/constants.js";
+import { COMMANDS, CONFIG, MESSAGES, MENUS } from "../config/constants.js";
 import { Logger } from "../utils/Logger.js";
 import { MediaProcessor } from "./MediaProcessor.js";
 import { GroupManager } from "../managers/GroupManager.js";
 import { BlacklistManager } from "../managers/BlacklistManager.js";
 import { LumaHandler } from "./LumaHandler.js";
 import { LUMA_CONFIG } from "../config/lumaConfig.js";
+import { PersonalityManager } from "../managers/PersonalityManager.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -24,44 +25,55 @@ export class MessageHandler {
       const isOwner = message.key.fromMe || senderNumber === ownerNumber;
 
       if (!isOwner) {
-        Logger.info(
-          `🚫 Mensagem ignorada de grupo bloqueado: ${jid} (usuário: ${senderNumber})`
-        );
+        Logger.info(`🚫 Ignorado: ${jid}`);
         return;
       }
-
-      Logger.info(
-        `✅ Mensagem permitida em grupo bloqueado: ${jid} (owner: ${senderNumber})`
-      );
-    }
-
-    if (text && (await this.handleAdminCommands(message, sock, text))) {
-      return;
     }
 
     if (text) {
+      if (await this.handleMenuReply(message, sock, text)) {
+        return;
+      }
+
+      if (await this.handleAdminCommands(message, sock, text)) {
+        return;
+      }
+
       const command = this.detectCommand(text);
+
       if (command) {
-        if (command === COMMANDS.STICKER) {
-          await this.handleStickerCommand(message, sock);
-          return;
-        } else if (command === COMMANDS.IMAGE) {
-          await this.handleImageCommand(message, sock);
-          return;
-        } else if (command === COMMANDS.GIF) {
-          await this.handleGifCommand(message, sock);
-          return;
-        } else if (command === COMMANDS.EVERYONE) {
-          if (jid.endsWith("@g.us")) {
-            await GroupManager.mentionEveryone(message, sock);
-          } else {
-            await this.sendMessage(
-              sock,
-              jid,
-              "⚠️ Este comando só funciona em grupos!"
-            );
-          }
-          return;
+        switch (command) {
+          case COMMANDS.HELP:
+            await this.sendHelp(sock, jid);
+            return;
+
+          case COMMANDS.PERSONA:
+            await this.sendPersonalityMenu(sock, jid);
+            return;
+
+          case COMMANDS.STICKER:
+            await this.handleStickerCommand(message, sock);
+            return;
+
+          case COMMANDS.IMAGE:
+            await this.handleImageCommand(message, sock);
+            return;
+
+          case COMMANDS.GIF:
+            await this.handleGifCommand(message, sock);
+            return;
+
+          case COMMANDS.EVERYONE:
+            if (jid.endsWith("@g.us")) {
+              await GroupManager.mentionEveryone(message, sock);
+            } else {
+              await this.sendMessage(
+                sock,
+                jid,
+                "⚠️ Este comando só funciona em grupos!"
+              );
+            }
+            return;
         }
       }
     }
@@ -358,34 +370,50 @@ export class MessageHandler {
     if (lower.includes(COMMANDS.GIF)) return COMMANDS.GIF;
     if (lower.includes(COMMANDS.EVERYONE.toLowerCase()))
       return COMMANDS.EVERYONE;
+    if (lower.includes(COMMANDS.HELP) || lower === "!menu")
+      return COMMANDS.HELP;
+    if (lower.startsWith(COMMANDS.PERSONA)) return COMMANDS.PERSONA;
     return null;
   }
 
   static async handleStickerCommand(message, sock) {
+    const text = this.extractText(message);
+    const url = this.extractUrl(text);
+    const jid = message.key.remoteJid;
+
+    if (url) {
+      await MediaProcessor.processUrlToSticker(url, sock, message);
+      return;
+    }
+
     if (MessageHandler.hasMedia(message)) {
       await MediaProcessor.processToSticker(message, sock);
     } else if (MessageHandler.hasQuotedMessage(message)) {
       const quoted = MessageHandler.extractQuotedMessage(message);
       if (MessageHandler.hasMedia(quoted)) {
-        await MediaProcessor.processToSticker(
-          quoted,
-          sock,
-          message.key.remoteJid
-        );
+        await MediaProcessor.processToSticker(quoted, sock, jid);
       } else {
         await MessageHandler.sendMessage(
           sock,
-          message.key.remoteJid,
+          jid,
           MESSAGES.REPLY_MEDIA_STICKER
         );
       }
     } else {
       await MessageHandler.sendMessage(
         sock,
-        message.key.remoteJid,
-        MESSAGES.SEND_MEDIA_STICKER
+        jid,
+        MESSAGES.SEND_MEDIA_STICKER +
+          " ou envie uma URL (ex: !sticker https://site.com/foto.jpg)"
       );
     }
+  }
+
+  static extractUrl(text) {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const match = text.match(urlRegex);
+    return match ? match[0] : null;
   }
 
   static async handleImageCommand(message, sock) {
@@ -491,5 +519,78 @@ export class MessageHandler {
     await new Promise((resolve) =>
       setTimeout(resolve, min + Math.random() * (max - min))
     );
+  }
+
+  static async sendMainMenu(sock, jid) {
+    const currentPersona = PersonalityManager.getActiveName(jid);
+
+    const text =
+      `${MENUS.MAIN.HEADER}\n` +
+      `🎭 *Personalidade Atual:* ${currentPersona}\n\n` +
+      `${MENUS.MAIN.OPTIONS}` +
+      `${MENUS.MAIN.FOOTER}`;
+
+    await sock.sendMessage(jid, { text });
+  }
+
+  static async sendPersonalityMenu(sock, jid) {
+    const list = PersonalityManager.getList();
+    let text = `${MENUS.PERSONALITY.HEADER}\n`;
+
+    list.forEach((p, index) => {
+      text += `*p${index + 1}* - ${p.name}\n_${p.desc}_\n\n`;
+    });
+
+    text += MENUS.PERSONALITY.FOOTER;
+    await sock.sendMessage(jid, { text });
+  }
+
+  static async sendHelp(sock, jid) {
+    await sock.sendMessage(jid, { text: MENUS.HELP_TEXT });
+  }
+
+  static async sendPersonalityMenu(sock, jid) {
+    const list = PersonalityManager.getList();
+    let text = `${MENUS.PERSONALITY.HEADER}\n`;
+
+    list.forEach((p, index) => {
+      text += `*p${index + 1}* - ${p.name}\n_${p.desc}_\n\n`;
+    });
+
+    text += MENUS.PERSONALITY.FOOTER;
+    await sock.sendMessage(jid, { text });
+  }
+
+  static async handleMenuReply(message, sock, text) {
+    const quotedMsg =
+      message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    if (!quotedMsg) return false;
+
+    const quotedText =
+      quotedMsg.conversation || quotedMsg.extendedTextMessage?.text;
+    if (!quotedText) return false;
+
+    const jid = message.key.remoteJid;
+    const cleanText = text.trim().toLowerCase();
+
+    if (quotedText.includes(MENUS.PERSONALITY.HEADER.split("\n")[0])) {
+      const list = PersonalityManager.getList();
+      let index = -1;
+      const num = parseInt(cleanText.replace("p", ""));
+      if (!isNaN(num) && num > 0) index = num - 1;
+
+      if (index >= 0 && index < list.length) {
+        const selected = list[index];
+        PersonalityManager.setPersonality(jid, selected.key);
+        await sock.sendMessage(jid, {
+          text: `${MENUS.MSGS.PERSONA_CHANGED}*${selected.name}*`,
+        });
+      } else {
+        await sock.sendMessage(jid, { text: MENUS.MSGS.INVALID_OPT });
+      }
+      return true;
+    }
+
+    return false;
   }
 }

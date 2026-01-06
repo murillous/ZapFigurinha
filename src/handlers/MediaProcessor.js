@@ -14,8 +14,13 @@ const execAsync = promisify(exec);
 
 export class MediaProcessor {
   static async processToSticker(message, sock, targetJid = null) {
-    if (message.message?.viewOnceMessage || message.message?.viewOnceMessageV2) {
-      Logger.info("Mensagem de visualização única. Sticker não pode ser criado");
+    if (
+      message.message?.viewOnceMessage ||
+      message.message?.viewOnceMessageV2
+    ) {
+      Logger.info(
+        "Mensagem de visualização única. Sticker não pode ser criado"
+      );
       return;
     }
     try {
@@ -113,7 +118,8 @@ export class MediaProcessor {
     try {
       const metadata = await ImageProcessor.getMetadata(buffer);
       Logger.info(
-        `📐 Dimensões: ${metadata.width}x${metadata.height}, páginas: ${metadata.pages || 1
+        `📐 Dimensões: ${metadata.width}x${metadata.height}, páginas: ${
+          metadata.pages || 1
         }`
       );
 
@@ -231,6 +237,78 @@ export class MediaProcessor {
     } catch (error) {
       Logger.error("Erro ao baixar mídia:", error);
       return null;
+    }
+  }
+
+  static async processUrlToSticker(url, sock, message) {
+    const jid = message.key.remoteJid;
+
+    try {
+      Logger.info(`🔗 Baixando mídia da URL: ${url}`);
+      await MessageHandler.sendMessage(
+        sock,
+        jid,
+        "🔄 Baixando mídia da URL..."
+      );
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Falha ao baixar: ${response.statusText}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      const contentLength = response.headers.get("content-length");
+
+      if (
+        contentLength &&
+        parseInt(contentLength) > CONFIG.MAX_FILE_SIZE * 1024 * 5
+      ) {
+        await MessageHandler.sendMessage(
+          sock,
+          jid,
+          "❌ Arquivo muito grande para processar."
+        );
+        return;
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      if (!buffer || buffer.length === 0) {
+        throw new Error("Buffer vazio");
+      }
+
+      let stickerBuffer;
+
+      if (
+        contentType &&
+        (contentType.startsWith("video/") || contentType.includes("gif"))
+      ) {
+        const isGif = contentType.includes("gif");
+        stickerBuffer = await VideoConverter.toSticker(buffer, isGif);
+      } else if (contentType && contentType.startsWith("image/")) {
+        stickerBuffer = await ImageProcessor.toSticker(buffer);
+      } else {
+        Logger.warn(
+          `⚠️ Content-Type desconhecido: ${contentType}, tentando como imagem.`
+        );
+        stickerBuffer = await ImageProcessor.toSticker(buffer);
+      }
+
+      if (stickerBuffer) {
+        await sock.sendMessage(jid, { sticker: stickerBuffer });
+        Logger.info("✅ Sticker via URL enviado");
+      } else {
+        await MessageHandler.sendMessage(sock, jid, MESSAGES.CONVERSION_ERROR);
+      }
+    } catch (error) {
+      Logger.error("Erro ao processar URL:", error);
+      await MessageHandler.sendMessage(
+        sock,
+        jid,
+        "❌ Erro ao baixar ou converter o link."
+      );
     }
   }
 }

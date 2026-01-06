@@ -57,7 +57,7 @@ export class ConnectionManager {
         connectTimeoutMs: CONFIG.TIMEOUT_MS,
         keepAliveIntervalMs: CONFIG.KEEPALIVE_MS,
         qrTimeout: 60000,
-        retryRequestDelayMs: 2000, 
+        retryRequestDelayMs: 2000,
         emitOwnEvents: false,
         markOnlineOnConnect: true,
         syncFullHistory: false,
@@ -78,9 +78,7 @@ export class ConnectionManager {
     if (this.sock) {
       try {
         this.sock.end(undefined);
-      } catch (error) {
-       
-      }
+      } catch (error) {}
       this.sock = null;
     }
   }
@@ -122,8 +120,12 @@ export class ConnectionManager {
   }
 
   displayQrCode(qr) {
-    Logger.info(`\n📱 QR Code gerado! (Tentativa ${this.qrRetries}/${this.maxQrRetries})`);
-    Logger.info("📶 IMPORTANTE: Certifique-se de ter boa conexão no celular!\n");
+    Logger.info(
+      `\n📱 QR Code gerado! (Tentativa ${this.qrRetries}/${this.maxQrRetries})`
+    );
+    Logger.info(
+      "📶 IMPORTANTE: Certifique-se de ter boa conexão no celular!\n"
+    );
 
     if (qrcode) {
       qrcode.generate(qr, { small: true });
@@ -131,7 +133,7 @@ export class ConnectionManager {
       Logger.info("QR Code (texto):", qr);
       Logger.info("\n💡 Instale qrcode-terminal para QR visual\n");
     }
-    
+
     Logger.info("\n⏰ QR Code expira em ~60 segundos");
   }
 
@@ -141,29 +143,39 @@ export class ConnectionManager {
     const errorMessage = lastDisconnect?.error?.message || "Desconhecido";
 
     Logger.info(`🔌 Desconectado: ${errorMessage}`);
-    
+
     if (statusCode) {
       Logger.info(`📊 Status Code: ${statusCode}`);
     }
 
-    if (statusCode === 408 || statusCode === 440 || errorMessage.includes("timed out")) {
+    if (
+      statusCode === 408 ||
+      statusCode === 440 ||
+      errorMessage.includes("timed out")
+    ) {
       if (this.qrRetries >= this.maxQrRetries) {
-        Logger.info(`❌ Máximo de tentativas de QR atingido (${this.maxQrRetries})`);
+        Logger.info(
+          `❌ Máximo de tentativas de QR atingido (${this.maxQrRetries})`
+        );
         Logger.info("🧹 Limpando sessão para nova tentativa...\n");
         await this.cleanAndRestart();
         return;
       }
-      
+
       Logger.info("⏱️ Timeout ao escanear QR - gerando novo código...");
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 3000));
       this.isConnecting = false;
       await this.initialize();
       return;
     }
 
-    if (statusCode === 503 || statusCode === 500 || errorMessage.includes("Connection Failure")) {
+    if (
+      statusCode === 503 ||
+      statusCode === 500 ||
+      errorMessage.includes("Connection Failure")
+    ) {
       Logger.info("📡 Erro de conexão detectado - tentando novamente...");
-      await new Promise(r => setTimeout(r, 5000));
+      await new Promise((r) => setTimeout(r, 5000));
       this.isConnecting = false;
       await this.initialize();
       return;
