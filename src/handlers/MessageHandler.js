@@ -551,10 +551,16 @@ export class MessageHandler {
 
   static async sendPersonalityMenu(sock, jid) {
     const list = PersonalityManager.getList();
+    const currentName = PersonalityManager.getActiveName(jid);
+
     let text = `${MENUS.PERSONALITY.HEADER}\n`;
+    text += `🔹 _Atual neste chat: *${currentName}*_\n\n`;
 
     list.forEach((p, index) => {
-      text += `*p${index + 1}* - ${p.name}\n_${p.desc}_\n\n`;
+      const isDefault =
+        p.key === LUMA_CONFIG.DEFAULT_PERSONALITY ? " ⭐ (Padrão)" : "";
+
+      text += `*p${index + 1}* - ${p.name}${isDefault}\n_${p.desc}_\n\n`;
     });
 
     text += MENUS.PERSONALITY.FOOTER;
@@ -583,14 +589,13 @@ export class MessageHandler {
         const selected = list[index];
         PersonalityManager.setPersonality(jid, selected.key);
         await sock.sendMessage(jid, {
-          text: `${MENUS.MSGS.PERSONA_CHANGED}*${selected.name}*`,
+          text: `${MENUS.MSGS.PERSONA_CHANGED}*${selected.name}*\n\n_Pode interagir!_`,
         });
       } else {
         await sock.sendMessage(jid, { text: MENUS.MSGS.INVALID_OPT });
       }
       return true;
     }
-
     return false;
   }
 }
