@@ -106,12 +106,7 @@ export const LUMA_CONFIG = {
   },
 
   TECHNICAL: {
-    models: [
-      "gemini-2.5-flash",
-      "gemini-2.5-flash-lite",
-      "gemini-3-flash",
-      "gemini-2.5-flash-tts",
-    ],
+    models: ["gemini-3-flash", "gemini-2.5-flash", "gemini-2.0-flash"],
     maxHistory: 50,
     maxResponseLength: 500,
     thinkingDelay: { min: 2000, max: 5000 },
