@@ -344,7 +344,7 @@ export class LumaHandler {
     return { msg: "Stats simplificado" };
   }
 
-  getBoredResponse() {
+  getRandomBoredResponse() {
     const responses = LUMA_CONFIG.BORED_RESPONSES;
     return responses[Math.floor(Math.random() * responses.length)];
   }
