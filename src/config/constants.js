@@ -17,7 +17,13 @@ export const CONFIG = {
   MAX_GIF_FRAMES: 50,
   TIMEOUT_MS: 60000,
   KEEPALIVE_MS: 30000,
+  IGNORE_SELF: true,
 };
+
+export const STICKER_METADATA = {
+  PACK_NAME: "LumaBot  Stickers",
+  AUTHOR: "Criado com ❤️ por LumaBot",
+}
 
 export const COMMANDS = {
   STICKER: "!sticker",
@@ -36,7 +42,6 @@ export const COMMANDS = {
 };
 
 export const MENUS = {
-  // Texto Informativo do !help
   HELP_TEXT:
     "🤖 *LISTA DE COMANDOS* 🤖\n\n" +
     "🎨 *MÍDIA*\n" +
@@ -47,11 +52,12 @@ export const MENUS = {
     "• *Luma* - Fale qualquer coisa (ex: 'Luma, bom dia')\n" +
     "• *!persona* - Abre o menu para mudar a Luma\n" +
     "• *!luma clear* - Limpa memória da conversa\n\n" +
+    "• *!luma stats* - Mostra estatísticas da Luma\n\n" +
     "🛠️ *UTILITÁRIOS*\n" +
     "• *!meunumero* - Vê seu ID/Número\n" +
-    "• *!help* - Mostra essa lista",
+    "• *!help* - Mostra essa lista\n" +
+    "• *@everyone* - Marca todos os membros do grupo\n",
 
-  // Menu Interativo (Só para personalidade)
   PERSONALITY: {
     HEADER: "🎭 *CONFIGURAÇÃO DA LUMA*\n_Responda com o código (ex: p1):_\n",
     FOOTER: "\n_A mudança é aplicada imediatamente neste chat._",

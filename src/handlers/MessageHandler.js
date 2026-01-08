@@ -15,6 +15,11 @@ export class MessageHandler {
 
   static async process(message, sock) {
     const jid = message.key.remoteJid;
+
+    if (CONFIG.IGNORE_SELF && message.key.fromMe) {
+      return;
+    }
+
     const text = this.extractText(message);
 
     if (jid.endsWith("@g.us") && BlacklistManager.isBlocked(jid)) {
@@ -24,10 +29,7 @@ export class MessageHandler {
         : await this.getSenderNumber(message, sock);
       const isOwner = message.key.fromMe || senderNumber === ownerNumber;
 
-      if (!isOwner) {
-        Logger.info(`🚫 Ignorado: ${jid}`);
-        return;
-      }
+      if (!isOwner) return;
     }
 
     if (text) {
@@ -51,6 +53,20 @@ export class MessageHandler {
             await this.sendPersonalityMenu(sock, jid);
             return;
 
+          case COMMANDS.LUMA_STATS:
+            const stats = this.lumaHandler.getStats();
+            const statsText =
+              `📊 *Estatísticas da Luma*\n\n` +
+              `💬 Conversas ativas: ${stats.totalConversations}\n` +
+              `🤖 Modelos: ${stats.modelStats.length}`;
+            await this.sendMessage(sock, jid, statsText);
+            return;
+
+          case COMMANDS.LUMA_CLEAR:
+            this.lumaHandler.clearHistory(jid);
+            await this.sendMessage(sock, jid, "🗑️ Memória da Luma limpa nesta conversa!");
+            return;
+
           case COMMANDS.STICKER:
             await this.handleStickerCommand(message, sock);
             return;
@@ -67,11 +83,7 @@ export class MessageHandler {
             if (jid.endsWith("@g.us")) {
               await GroupManager.mentionEveryone(message, sock);
             } else {
-              await this.sendMessage(
-                sock,
-                jid,
-                "⚠️ Este comando só funciona em grupos!"
-              );
+              await this.sendMessage(sock, jid, "⚠️ Este comando só funciona em grupos!");
             }
             return;
         }
@@ -101,7 +113,6 @@ export class MessageHandler {
 
   static async handleAdminCommands(message, sock, text) {
     const jid = message.key.remoteJid;
-
     if (!text) return false;
 
     const lower = text.toLowerCase();
@@ -111,58 +122,21 @@ export class MessageHandler {
       senderNumber = await this.getSenderNumber(message, sock);
     }
 
-    if (lower === COMMANDS.MY_NUMBER) {
-      const debugInfo = message.key.fromMe
-        ? `fromMe: true\nsock.user.id: ${sock.user?.id || "N/A"}`
-        : `participant: ${message.key.participant || "N/A"}\nremoteJid: ${
-            message.key.remoteJid
-          }`;
-
-      const detected = message.key.fromMe
-        ? sock.user?.id?.split("@")[0].split(":")[0] || "Desconhecido"
-        : senderNumber || "Não identificado";
-
-      await this.sendMessage(
-        sock,
-        jid,
-        `📱 Número detectado: ${detected}\n\n` +
-          `Se este for seu número, configure em .env como OWNER_NUMBER\n\n` +
-          `🔍 DEBUG:\n${debugInfo}`
-      );
-      return true;
-    }
-
     const ownerNumber = process.env.OWNER_NUMBER?.replace(/\D/g, "");
-    const isOwner =
-      message.key.fromMe || (senderNumber && senderNumber === ownerNumber);
+    
+    const isOwner = message.key.fromMe || (senderNumber === ownerNumber);
 
     if (!isOwner) return false;
 
-    if (lower === COMMANDS.LUMA_STATS) {
-      const stats = this.lumaHandler.getStats();
-      const statsText =
-        `📊 *Estatísticas da Luma*\n\n` +
-        `💬 Conversas ativas: ${stats.totalConversations}\n\n` +
-        (stats.conversations.length > 0
-          ? stats.conversations
-              .slice(0, 10)
-              .map(
-                (c) =>
-                  `• ${c.jid}: ${c.messageCount} msgs\n  Última: ${c.lastUpdate}`
-              )
-              .join("\n")
-          : "Nenhuma conversa no momento");
+    if (lower === COMMANDS.MY_NUMBER) {
+      const detected = message.key.fromMe
+        ? sock.user?.id?.split("@")[0].split(":")[0]
+        : senderNumber;
 
-      await this.sendMessage(sock, jid, statsText);
-      return true;
-    }
-
-    if (lower === COMMANDS.LUMA_CLEAR) {
-      this.lumaHandler.clearHistory(jid);
       await this.sendMessage(
         sock,
         jid,
-        "🗑️ Histórico da Luma limpo nesta conversa!"
+        `📱 *ID de Admin Detectado:*\n${detected}\n\nConfigure isso no .env como OWNER_NUMBER.`
       );
       return true;
     }
@@ -173,78 +147,42 @@ export class MessageHandler {
 
       if (action === "add") {
         if (!jid.endsWith("@g.us")) {
-          await this.sendMessage(
-            sock,
-            jid,
-            "⚠️ Este comando só funciona em grupos!"
-          );
+          await this.sendMessage(sock, jid, "⚠️ Use isso dentro do grupo que quer bloquear.");
           return true;
         }
-
-        const added = BlacklistManager.add(jid);
-        if (added) {
-          await this.sendMessage(
-            sock,
-            jid,
-            "🚫 Grupo adicionado à blacklist! O bot ignorará mensagens daqui."
-          );
+        if (BlacklistManager.add(jid)) {
+          await this.sendMessage(sock, jid, "🚫 Grupo adicionado à blacklist!");
         } else {
-          await this.sendMessage(sock, jid, "❌ Erro ao adicionar à blacklist");
+          await this.sendMessage(sock, jid, "❌ Erro ao adicionar.");
         }
         return true;
       }
 
       if (action === "remove") {
-        if (!jid.endsWith("@g.us")) {
-          await this.sendMessage(
-            sock,
-            jid,
-            "⚠️ Este comando só funciona em grupos!"
-          );
-          return true;
-        }
-
-        const removed = BlacklistManager.remove(jid);
-        if (removed) {
+        if (BlacklistManager.remove(jid)) {
           await this.sendMessage(sock, jid, "✅ Grupo removido da blacklist!");
         } else {
-          await this.sendMessage(
-            sock,
-            jid,
-            "⚠️ Este grupo não estava na blacklist"
-          );
+          await this.sendMessage(sock, jid, "⚠️ Este grupo não estava bloqueado.");
         }
         return true;
       }
 
       if (action === "list") {
         const list = BlacklistManager.list();
-        const listText =
-          list.length > 0
-            ? `📋 *Grupos bloqueados:*\n\n${list
-                .map((g, i) => `${i + 1}. ${g}`)
-                .join("\n")}`
-            : "📋 Nenhum grupo na blacklist";
-
+        const listText = list.length > 0
+            ? `📋 *Blacklist:*\n\n${list.map((g, i) => `${i + 1}. ${g}`).join("\n")}`
+            : "📋 Blacklist vazia.";
         await this.sendMessage(sock, jid, listText);
         return true;
       }
 
       if (action === "clear") {
         BlacklistManager.clear();
-        await this.sendMessage(sock, jid, "🗑️ Blacklist limpa!");
+        await this.sendMessage(sock, jid, "🗑️ Blacklist zerada!");
         return true;
       }
 
-      await this.sendMessage(
-        sock,
-        jid,
-        `📋 *Comandos de Blacklist:*\n\n` +
-          `!blacklist add - Bloqueia o grupo atual\n` +
-          `!blacklist remove - Desbloqueia o grupo atual\n` +
-          `!blacklist list - Lista grupos bloqueados\n` +
-          `!blacklist clear - Limpa toda a blacklist`
-      );
+      await this.sendMessage(sock, jid, "Use: !blacklist <add|remove|list|clear>");
       return true;
     }
 
@@ -365,6 +303,8 @@ export class MessageHandler {
 
   static detectCommand(text) {
     const lower = text.toLowerCase();
+    if (lower.includes(COMMANDS.LUMA_CLEAR)) return COMMANDS.LUMA_CLEAR;
+    if (lower.includes(COMMANDS.LUMA_STATS)) return COMMANDS.LUMA_STATS;
     if (lower.includes(COMMANDS.STICKER)) return COMMANDS.STICKER;
     if (lower.includes(COMMANDS.IMAGE)) return COMMANDS.IMAGE;
     if (lower.includes(COMMANDS.GIF)) return COMMANDS.GIF;
@@ -404,7 +344,7 @@ export class MessageHandler {
         sock,
         jid,
         MESSAGES.SEND_MEDIA_STICKER +
-          " ou envie uma URL (ex: !sticker https://site.com/foto.jpg)"
+        " ou envie uma URL (ex: !sticker https://site.com/foto.jpg)"
       );
     }
   }

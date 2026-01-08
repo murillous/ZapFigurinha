@@ -1,16 +1,23 @@
 import sharp from "sharp";
 import path from "path";
-import { CONFIG } from "../config/constants.js";
+import { CONFIG, STICKER_METADATA } from "../config/constants.js";
+import { Exif } from "../utils/Exif.js";
 
 export class ImageProcessor {
   static async toSticker(buffer) {
-    return sharp(buffer)
+    const webpBuffer = await sharp(buffer)
       .resize(CONFIG.STICKER_SIZE, CONFIG.STICKER_SIZE, {
         fit: "contain",
         background: { r: 0, g: 0, b: 0, alpha: 0 },
       })
       .webp({ quality: CONFIG.STICKER_QUALITY })
       .toBuffer();
+
+    return await Exif.writeExif(
+      webpBuffer,
+      STICKER_METADATA.PACK_NAME,
+      STICKER_METADATA.AUTHOR
+    );
   }
 
   static async toPng(buffer) {

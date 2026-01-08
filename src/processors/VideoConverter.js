@@ -2,8 +2,9 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs";
 import path from "path";
-import { CONFIG } from "../config/constants.js";
+import { CONFIG, STICKER_METADATA } from "../config/constants.js";
 import { FileSystem } from "../utils/FileSystem.js";
+import { Exif } from "../utils/Exif.js";
 
 const execAsync = promisify(exec);
 
@@ -19,9 +20,21 @@ export class VideoConverter {
 
     try {
       await execAsync(cmd);
-      const result = fs.existsSync(output) ? fs.readFileSync(output) : null;
+
+      let finalBuffer = null;
+
+      if (fs.existsSync(output)) {
+        const rawWebp = fs.readFileSync(output);
+
+        finalBuffer = await Exif.writeExif(
+          rawWebp,
+          STICKER_METADATA.PACK_NAME,
+          STICKER_METADATA.AUTHOR
+        );
+      }
+
       FileSystem.cleanupFiles([input, output]);
-      return result;
+      return finalBuffer;
     } catch (error) {
       FileSystem.cleanupFiles([input, output]);
       throw error;
