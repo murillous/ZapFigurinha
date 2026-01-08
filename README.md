@@ -54,7 +54,7 @@ Cansou da Luma boazinha? **Mude o humor dela!**
 
 **Como mudar:**
 ```
-Digite: !personalidade
+Digite: !persona
 → Menu interativo aparecerá com todas as opções
 ```
 
@@ -246,13 +246,13 @@ Acione a Luma usando qualquer gatilho:
 ✅ Responder mensagem da Luma diretamente
 ```
 
-#### **!personalidade** - Mudar personalidade
+#### **!persona** - Mudar personalidade
 
 Abre menu interativo para trocar o humor da Luma.
 
 **Como usar:**
 ```
-Digite: !personalidade
+Digite: !persona
 → Selecione entre: Sarcástica, Agressiva, Amigável, Intelectual, Carioca
 ```
 
@@ -404,7 +404,7 @@ Remove todos os grupos da blacklist.
 → Luma responde de acordo com a personalidade ativa
 
 # Mudando personalidade
-!personalidade
+!persona
 → Menu aparece, escolha "Agressiva"
 "luma, tudo bem?"
 → "Tô. E você?"
