@@ -2,3 +2,5 @@ node_modules/
 auth_info
 .env
 blacklist.json
+data/*
+!data/luma_metrics.sqlite

@@ -3,6 +3,7 @@ import { Logger } from "../utils/Logger.js";
 import { LUMA_CONFIG } from "../config/lumaConfig.js";
 import { MediaProcessor } from "./MediaProcessor.js";
 import { PersonalityManager } from "../managers/PersonalityManager.js";
+import { DatabaseService } from "../services/Database.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -207,6 +208,10 @@ export class LumaHandler {
       this.addToHistory(userJid, userMessage, cleanedResponse);
 
       Logger.info(`💬 Luma respondeu para ${userJid.split("@")[0]}`);
+
+      DatabaseService.incrementMetric("ai_responses");
+      DatabaseService.incrementMetric("total_messages");
+
       return cleanedResponse;
     } catch (error) {
       Logger.error("❌ Erro na Luma:", error.message);
@@ -341,11 +346,15 @@ export class LumaHandler {
   }
 
   getStats() {
-    return { msg: "Stats simplificado" };
-  }
+    const historySize = this.conversationHistory ? this.conversationHistory.size : 0;
 
-  getRandomBoredResponse() {
-    const responses = LUMA_CONFIG.BORED_RESPONSES;
-    return responses[Math.floor(Math.random() * responses.length)];
+    return {
+      totalConversations: historySize,
+      modelStats: Array.from(this.modelAttempts.entries()).map(([model, stats]) => ({
+        model,
+        successes: stats.successes,
+        failures: stats.failures
+      }))
+    };
   }
 }

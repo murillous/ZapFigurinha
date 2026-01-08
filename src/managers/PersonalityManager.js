@@ -1,24 +1,27 @@
 import { LUMA_CONFIG } from "../config/lumaConfig.js";
+import { DatabaseService } from "../services/Database.js";
 
 export class PersonalityManager {
-  static activePersonalities = new Map();
 
   static getPersonaConfig(jid) {
-    const key =
-      this.activePersonalities.get(jid) || LUMA_CONFIG.DEFAULT_PERSONALITY;
-    return LUMA_CONFIG.PERSONALITIES[key];
+    const savedKey = DatabaseService.getPersonality(jid);
+    
+    const key = savedKey || LUMA_CONFIG.DEFAULT_PERSONALITY;
+    
+    return LUMA_CONFIG.PERSONALITIES[key] || LUMA_CONFIG.PERSONALITIES[LUMA_CONFIG.DEFAULT_PERSONALITY];
   }
 
   static setPersonality(jid, key) {
     if (LUMA_CONFIG.PERSONALITIES[key]) {
-      this.activePersonalities.set(jid, key);
+      DatabaseService.setPersonality(jid, key);
       return true;
     }
     return false;
   }
 
   static getActiveName(jid) {
-    return this.getPersonaConfig(jid).name;
+    const config = this.getPersonaConfig(jid);
+    return config.name;
   }
 
   static getList() {

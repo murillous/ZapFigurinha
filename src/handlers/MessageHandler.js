@@ -6,6 +6,7 @@ import { BlacklistManager } from "../managers/BlacklistManager.js";
 import { LumaHandler } from "./LumaHandler.js";
 import { LUMA_CONFIG } from "../config/lumaConfig.js";
 import { PersonalityManager } from "../managers/PersonalityManager.js";
+import { DatabaseService } from "../services/Database.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -54,11 +55,22 @@ export class MessageHandler {
             return;
 
           case COMMANDS.LUMA_STATS:
-            const stats = this.lumaHandler.getStats();
+            const dbStats = DatabaseService.getMetrics();
+            const memoryStats = this.lumaHandler.getStats();
+
             const statsText =
-              `📊 *Estatísticas da Luma*\n\n` +
-              `💬 Conversas ativas: ${stats.totalConversations}\n` +
-              `🤖 Modelos: ${stats.modelStats.length}`;
+              `📊 *Estatísticas Globais da Luma*\n\n` +
+              `🧠 *Inteligência Artificial:*\n` +
+              `• Respostas Geradas: ${dbStats.ai_responses || 0}\n` +
+              `• Conversas Ativas (RAM): ${memoryStats.totalConversations}\n\n` +
+
+              `🎨 *Mídia Gerada:*\n` +
+              `• Figurinhas: ${dbStats.stickers_created || 0}\n` +
+              `• Imagens: ${dbStats.images_created || 0}\n` +
+              `• GIFs: ${dbStats.gifs_created || 0}\n\n` +
+
+              `📈 *Total de Interações:* ${dbStats.total_messages || 0}`;
+
             await this.sendMessage(sock, jid, statsText);
             return;
 
@@ -123,7 +135,7 @@ export class MessageHandler {
     }
 
     const ownerNumber = process.env.OWNER_NUMBER?.replace(/\D/g, "");
-    
+
     const isOwner = message.key.fromMe || (senderNumber === ownerNumber);
 
     if (!isOwner) return false;
@@ -170,8 +182,8 @@ export class MessageHandler {
       if (action === "list") {
         const list = BlacklistManager.list();
         const listText = list.length > 0
-            ? `📋 *Blacklist:*\n\n${list.map((g, i) => `${i + 1}. ${g}`).join("\n")}`
-            : "📋 Blacklist vazia.";
+          ? `📋 *Blacklist:*\n\n${list.map((g, i) => `${i + 1}. ${g}`).join("\n")}`
+          : "📋 Blacklist vazia.";
         await this.sendMessage(sock, jid, listText);
         return true;
       }
@@ -321,17 +333,30 @@ export class MessageHandler {
     const url = this.extractUrl(text);
     const jid = message.key.remoteJid;
 
+    // Caso 1: Sticker via URL
     if (url) {
       await MediaProcessor.processUrlToSticker(url, sock, message);
+      // Incrementa métricas
+      DatabaseService.incrementMetric("stickers_created");
+      DatabaseService.incrementMetric("total_messages");
       return;
     }
 
+    // Caso 2: Sticker via Upload Direto (Imagem/Vídeo na mensagem)
     if (MessageHandler.hasMedia(message)) {
       await MediaProcessor.processToSticker(message, sock);
-    } else if (MessageHandler.hasQuotedMessage(message)) {
+      // Incrementa métricas
+      DatabaseService.incrementMetric("stickers_created");
+      DatabaseService.incrementMetric("total_messages");
+    }
+    // Caso 3: Sticker via Resposta (Reply)
+    else if (MessageHandler.hasQuotedMessage(message)) {
       const quoted = MessageHandler.extractQuotedMessage(message);
       if (MessageHandler.hasMedia(quoted)) {
         await MediaProcessor.processToSticker(quoted, sock, jid);
+        // Incrementa métricas
+        DatabaseService.incrementMetric("stickers_created");
+        DatabaseService.incrementMetric("total_messages");
       } else {
         await MessageHandler.sendMessage(
           sock,
@@ -349,17 +374,13 @@ export class MessageHandler {
     }
   }
 
-  static extractUrl(text) {
-    if (!text) return null;
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const match = text.match(urlRegex);
-    return match ? match[0] : null;
-  }
-
   static async handleImageCommand(message, sock) {
     if (MessageHandler.hasSticker(message)) {
       await MediaProcessor.processStickerToImage(message, sock);
-    } else if (MessageHandler.hasQuotedMessage(message)) {
+      DatabaseService.incrementMetric("images_created");
+      DatabaseService.incrementMetric("total_messages");
+    }
+    else if (MessageHandler.hasQuotedMessage(message)) {
       const quoted = MessageHandler.extractQuotedMessage(message);
       if (MessageHandler.hasSticker(quoted)) {
         await MediaProcessor.processStickerToImage(
@@ -367,6 +388,8 @@ export class MessageHandler {
           sock,
           message.key.remoteJid
         );
+        DatabaseService.incrementMetric("images_created");
+        DatabaseService.incrementMetric("total_messages");
       } else {
         await MessageHandler.sendMessage(
           sock,
@@ -386,7 +409,10 @@ export class MessageHandler {
   static async handleGifCommand(message, sock) {
     if (MessageHandler.hasSticker(message)) {
       await MediaProcessor.processStickerToGif(message, sock);
-    } else if (MessageHandler.hasQuotedMessage(message)) {
+      DatabaseService.incrementMetric("gifs_created");
+      DatabaseService.incrementMetric("total_messages");
+    }
+    else if (MessageHandler.hasQuotedMessage(message)) {
       const quoted = MessageHandler.extractQuotedMessage(message);
       if (MessageHandler.hasSticker(quoted)) {
         await MediaProcessor.processStickerToGif(
@@ -394,6 +420,8 @@ export class MessageHandler {
           sock,
           message.key.remoteJid
         );
+        DatabaseService.incrementMetric("gifs_created");
+        DatabaseService.incrementMetric("total_messages");
       } else {
         await MessageHandler.sendMessage(
           sock,
@@ -408,6 +436,13 @@ export class MessageHandler {
         MESSAGES.SEND_STICKER_GIF
       );
     }
+  }
+
+  static extractUrl(text) {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const match = text.match(urlRegex);
+    return match ? match[0] : null;
   }
 
   static hasMedia(message) {
