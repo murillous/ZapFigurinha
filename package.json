@@ -19,6 +19,7 @@
   "dependencies": {
     "@google/genai": "^1.34.0",
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "better-sqlite3": "^12.5.0",
     "dotenv": "^17.2.3",
     "pino": "^10.0.0",
     "qrcode-terminal": "^0.12.0",
