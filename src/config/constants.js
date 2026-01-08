@@ -51,7 +51,7 @@ export const MENUS = {
     "🧠 *INTELIGÊNCIA ARTIFICIAL*\n" +
     "• *Luma* - Fale qualquer coisa (ex: 'Luma, bom dia')\n" +
     "• *!persona* - Abre o menu para mudar a Luma\n" +
-    "• *!luma clear* - Limpa memória da conversa\n\n" +
+    "• *!luma clear* - Limpa memória da conversa\n" +
     "• *!luma stats* - Mostra estatísticas da Luma\n\n" +
     "🛠️ *UTILITÁRIOS*\n" +
     "• *!meunumero* - Vê seu ID/Número\n" +
