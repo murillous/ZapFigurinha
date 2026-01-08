@@ -320,7 +320,7 @@ export class LumaHandler {
     if (!text) return "";
     let cleaned = text
       .trim()
-      .replace(/<think>[\s\S]*?<\/think>/gi, "") // Remove pensamento
+      .replace(/<think>[\s\S]*?<\/think>/gi, "")
       .replace(/^Luma:\s*/i, "")
       .trim();
 

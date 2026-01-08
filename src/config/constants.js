@@ -56,7 +56,10 @@ export const MENUS = {
     "🛠️ *UTILITÁRIOS*\n" +
     "• *!meunumero* - Vê seu ID/Número\n" +
     "• *!help* - Mostra essa lista\n" +
-    "• *@everyone* - Marca todos os membros do grupo\n",
+    "• *@everyone* - Marca todos os membros do grupo\n\n" + 
+    "👮 *AUTOR*\n" +
+    "• Feito por Murilo Castelhano\n" +
+    "• Repositório: https://github.com/murillous/LumaBot",
 
   PERSONALITY: {
     HEADER: "🎭 *CONFIGURAÇÃO DA LUMA*\n_Responda com o código (ex: p1):_\n",
