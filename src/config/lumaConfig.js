@@ -92,7 +92,7 @@ export const LUMA_CONFIG = {
 
   BORED_RESPONSES: [
     "Fala logo, mds...",
-    "Tô ouvindo, infelizmente.",
+    "Tô ouvindo, pode falar.",
     "🙄 Digita aí...",
   ],
 

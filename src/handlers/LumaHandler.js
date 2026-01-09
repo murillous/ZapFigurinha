@@ -357,4 +357,9 @@ export class LumaHandler {
       }))
     };
   }
+
+  getRandomBoredResponse() {
+    const responses = LUMA_CONFIG.BORED_RESPONSES;
+    return responses[Math.floor(Math.random() * responses.length)];
+  }
 }
