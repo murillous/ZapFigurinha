@@ -15,7 +15,7 @@ Uma assistente virtual com personalidade dinâmica, visão computacional e ferra
 
 ---
 
-## ✨ O Que Há de Novo? (v2.0)
+## ✨ O Que Há de Novo? (v3.0)
 
 ### 🚀 Sistema de Personalidades Dinâmicas
 A Luma não é apenas um robô. Você pode alternar a personalidade dela em tempo real usando um menu interativo:
