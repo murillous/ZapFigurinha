@@ -27,8 +27,11 @@ export const STICKER_METADATA = {
 
 export const COMMANDS = {
   STICKER: "!sticker",
+  STICKER_SHORT: "!s",
   IMAGE: "!image",
+  IMAGE_SHORT: "!i",
   GIF: "!gif",
+  GIF_SHORT: "!g",
   HELP: "!help",
   PERSONA: "!persona",
   EVERYONE: "@everyone",
@@ -37,7 +40,10 @@ export const COMMANDS = {
   BLACKLIST_LIST: "!blacklist list",
   BLACKLIST_CLEAR: "!blacklist clear",
   LUMA_STATS: "!luma stats",
+  LUMA_STATS_SHORT: "!ls",
   LUMA_CLEAR: "!luma clear",
+  LUMA_CLEAR_SHORT: "!lc",
+  LUMA_CLEAR_ALT: "!clear",
   MY_NUMBER: "!meunumero",
 };
 
@@ -45,14 +51,14 @@ export const MENUS = {
   HELP_TEXT:
     "🤖 *LISTA DE COMANDOS* 🤖\n\n" +
     "🎨 *MÍDIA*\n" +
-    "• *!sticker* - Imagem/Vídeo/Link -> Sticker\n" +
-    "• *!gif* - Sticker Animado -> GIF\n" +
-    "• *!image* - Sticker -> Imagem\n\n" +
+    "• *!sticker* (!s) - Imagem/Vídeo/Link -> Sticker\n" +
+    "• *!gif* (!g) - Sticker Animado -> GIF\n" +
+    "• *!image* (!i) - Sticker -> Imagem\n\n" +
     "🧠 *INTELIGÊNCIA ARTIFICIAL*\n" +
     "• *Luma* - Fale qualquer coisa (ex: 'Luma, bom dia')\n" +
     "• *!persona* - Abre o menu para mudar a Luma\n" +
-    "• *!luma clear* - Limpa memória da conversa\n" +
-    "• *!luma stats* - Mostra estatísticas da Luma\n\n" +
+    "• *!luma clear* (!lc ou !clear) - Limpa memória da conversa\n" +
+    "• *!luma stats* (!ls) - Mostra estatísticas da Luma\n\n" +
     "🛠️ *UTILITÁRIOS*\n" +
     "• *!meunumero* - Vê seu ID/Número\n" +
     "• *!help* - Mostra essa lista\n" +

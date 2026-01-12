@@ -55,6 +55,7 @@ export class MessageHandler {
             return;
 
           case COMMANDS.LUMA_STATS:
+          case COMMANDS.LUMA_STATS_SHORT:
             const dbStats = DatabaseService.getMetrics();
             const memoryStats = this.lumaHandler.getStats();
 
@@ -75,19 +76,24 @@ export class MessageHandler {
             return;
 
           case COMMANDS.LUMA_CLEAR:
+          case COMMANDS.LUMA_CLEAR_SHORT:
+          case COMMANDS.LUMA_CLEAR_ALT:
             this.lumaHandler.clearHistory(jid);
             await this.sendMessage(sock, jid, "🗑️ Memória da Luma limpa nesta conversa!");
             return;
 
           case COMMANDS.STICKER:
+          case COMMANDS.STICKER_SHORT:
             await this.handleStickerCommand(message, sock);
             return;
 
           case COMMANDS.IMAGE:
+          case COMMANDS.IMAGE_SHORT:
             await this.handleImageCommand(message, sock);
             return;
 
           case COMMANDS.GIF:
+          case COMMANDS.GIF_SHORT:
             await this.handleGifCommand(message, sock);
             return;
 
@@ -315,11 +321,11 @@ export class MessageHandler {
 
   static detectCommand(text) {
     const lower = text.toLowerCase();
-    if (lower.includes(COMMANDS.LUMA_CLEAR)) return COMMANDS.LUMA_CLEAR;
-    if (lower.includes(COMMANDS.LUMA_STATS)) return COMMANDS.LUMA_STATS;
-    if (lower.includes(COMMANDS.STICKER)) return COMMANDS.STICKER;
-    if (lower.includes(COMMANDS.IMAGE)) return COMMANDS.IMAGE;
-    if (lower.includes(COMMANDS.GIF)) return COMMANDS.GIF;
+    if (lower.includes(COMMANDS.LUMA_CLEAR) || lower.includes(COMMANDS.LUMA_CLEAR_SHORT) || lower.includes(COMMANDS.LUMA_CLEAR_ALT)) return COMMANDS.LUMA_CLEAR;
+    if (lower.includes(COMMANDS.LUMA_STATS) || lower.includes(COMMANDS.LUMA_STATS_SHORT)) return COMMANDS.LUMA_STATS;
+    if (lower.includes(COMMANDS.STICKER) || lower.includes(COMMANDS.STICKER_SHORT)) return COMMANDS.STICKER;
+    if (lower.includes(COMMANDS.IMAGE) || lower.includes(COMMANDS.IMAGE_SHORT)) return COMMANDS.IMAGE;
+    if (lower.includes(COMMANDS.GIF) || lower.includes(COMMANDS.GIF_SHORT)) return COMMANDS.GIF;
     if (lower.includes(COMMANDS.EVERYONE.toLowerCase()))
       return COMMANDS.EVERYONE;
     if (lower.includes(COMMANDS.HELP) || lower === "!menu")
