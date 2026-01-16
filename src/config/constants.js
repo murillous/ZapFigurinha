@@ -33,6 +33,7 @@ export const COMMANDS = {
   GIF: "!gif",
   GIF_SHORT: "!g",
   HELP: "!help",
+  IMAGINE: "!imagina",
   PERSONA: "!persona",
   EVERYONE: "@everyone",
   BLACKLIST_ADD: "!blacklist add",
@@ -44,6 +45,7 @@ export const COMMANDS = {
   LUMA_CLEAR: "!luma clear",
   LUMA_CLEAR_SHORT: "!lc",
   LUMA_CLEAR_ALT: "!clear",
+  LUMA_VOICE: "!luma voice",
   MY_NUMBER: "!meunumero",
 };
 
